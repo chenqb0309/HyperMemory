@@ -15,6 +15,14 @@ from hypermemory.core.index import parse_index
 from hypermemory.core.cluster import find_best_cluster
 from hypermemory.core.node import parse_frontmatter, extract_title
 from hypermemory.core.weight import calc_weight, format_score
+from hypermemory.core.dimensions import parse_dimensions, is_compatible, dimension_overlap_score
+from hypermemory.core.maturation import (
+    create_confirmation,
+    get_confirmation_stats,
+    calc_maturation,
+    list_confirmations,
+    scan_maturation_all,
+)
 
 
 class HMTools:
@@ -99,6 +107,7 @@ class HMTools:
             "prenode": fm.get("prenode"),
             "nextnodes": fm.get("nextnodes", []),
             "score": round(score, 2),
+            "dimensions": parse_dimensions(fm),
         }
 
     def think(self, query):
@@ -147,15 +156,29 @@ class HMTools:
             elif line.startswith("## 正文") or (line.startswith("## ") and "關聯" not in line):
                 body_start = True
 
+        # Maturation info
+        node_dims = parse_dimensions(fm)
+        stats = get_confirmation_stats(self.pool, node_file)
+        mat = calc_maturation(
+            fm.get("intensity", 1),
+            stats["positive"],
+            stats["negative"],
+            fm.get("timestamp"),
+            node_dims=node_dims,
+        )
+
         return {
             "found": True,
             "title": title,
             "type": fm.get("node_type"),
             "intensity": fm.get("intensity"),
             "weight": round(weight, 2),
+            "maturation": mat["score"],
+            "maturation_detail": mat,
             "summary": " | ".join(body_lines) if body_lines else title,
             "prenode": fm.get("prenode"),
             "tags": fm.get("tags", []),
+            "dimensions": node_dims,
         }
 
     def inspect(self, node_name):
@@ -180,6 +203,16 @@ class HMTools:
         nextnodes = fm.get("nextnodes", [])
         ref_by = fm.get("ref_by", [])
 
+        node_dims = parse_dimensions(fm)
+        stats = get_confirmation_stats(self.pool, node_path.name)
+        mat = calc_maturation(
+            fm.get("intensity", 1),
+            stats["positive"],
+            stats["negative"],
+            fm.get("timestamp"),
+            node_dims=node_dims,
+        )
+
         return {
             "found": True,
             "node": node_path.name,
@@ -188,12 +221,15 @@ class HMTools:
             "intensity": fm.get("intensity"),
             "mentions": fm.get("total_mentions", 0),
             "weight": round(weight, 2),
+            "maturation": mat["score"],
+            "maturation_detail": mat,
             "timestamp": fm.get("timestamp"),
             "tags": fm.get("tags", []),
             "prenode": prenode,
             "prenode_exists": prenode and (self.pool / prenode).exists(),
             "nextnodes": nextnodes,
             "ref_by": ref_by,
+            "dimensions": node_dims,
         }
 
     def imprint(self, content, filename=None):
@@ -280,6 +316,40 @@ class HMTools:
             "title": extract_title(content),
             "type": fm.get("node_type"),
             "weight": round(weight, 2),
+        }
+
+    def confirm(self, source_node, result, agent, context_summary="", dimensions=None):
+        """回報確認事件。source_node + result 為必填。"""
+        dims = dimensions or {}
+        outcome = create_confirmation(
+            self.pool, source_node, result,
+            agent=agent or "unknown",
+            context_summary=context_summary or "",
+            dimensions=dims,
+        )
+        if not outcome["success"]:
+            return {"success": False, "error": outcome.get("error", "Unknown error")}
+
+        # 回傳更新後的 maturation 資訊
+        with open(self.pool / source_node, encoding="utf-8") as f:
+            content = f.read()
+        fm = parse_frontmatter(content)
+        intensity = fm.get("intensity", 1)
+        stats = get_confirmation_stats(self.pool, source_node)
+        node_dims = parse_dimensions(fm)
+        mat = calc_maturation(
+            intensity, stats["positive"], stats["negative"],
+            fm.get("timestamp"),
+            context_dims=dims,
+            node_dims=node_dims,
+        )
+
+        return {
+            "success": True,
+            "confirmation_id": outcome["confirmation_id"],
+            "source": source_node,
+            "result": result,
+            "maturation": mat,
         }
 
     def daemon_status(self):
@@ -471,6 +541,35 @@ TOOLS = {
             "required": ["action"],
         },
     },
+    "hm_confirm": {
+        "description": "回報經驗 node 的事實驗證結果。agent 套用經驗後，根據事實結果呼叫此 tool 回報正/負反饋，累積 maturation score。",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "source": {
+                    "type": "string",
+                    "description": "被確認的源 node 檔名，如 2026-06-15-build-env.md",
+                },
+                "result": {
+                    "type": "string",
+                    "description": "驗證結果：positive（成功）、negative（失敗）、neutral（無明確事實回饋）",
+                },
+                "agent": {
+                    "type": "string",
+                    "description": "回報的 agent 名稱，如 hermes / opencode / claude-code",
+                },
+                "context_summary": {
+                    "type": "string",
+                    "description": "驗證時的 context 摘要，供日後回溯",
+                },
+                "dimensions": {
+                    "type": "object",
+                    "description": "驗證時的環境維度，如 {機: WSL, 料: Python 3.11, 法: uv-install, 環: venv}。用於 5M1E 維度碰撞比對與打分篩選。",
+                },
+            },
+            "required": ["source", "result"],
+        },
+    },
 }
 
 
@@ -559,6 +658,15 @@ def handle_request(tools, request):
             elif tool_name == "hm_maintain_now":
                 action = arguments.get("action", "all")
                 result = tools.maintain_now(action)
+                text = json.dumps(result, ensure_ascii=False, indent=2)
+
+            elif tool_name == "hm_confirm":
+                source = arguments.get("source", "")
+                result_val = arguments.get("result", "neutral")
+                agent = arguments.get("agent", "unknown")
+                ctx_summary = arguments.get("context_summary", "")
+                dims = arguments.get("dimensions", {})
+                result = tools.confirm(source, result_val, agent, ctx_summary, dims)
                 text = json.dumps(result, ensure_ascii=False, indent=2)
 
             else:

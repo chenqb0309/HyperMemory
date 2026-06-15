@@ -47,6 +47,11 @@ def parse_frontmatter(content):
         items = _parse_list_field(fm_text, field)
         fm[field] = items
 
+    # dimensions (nested dict field)
+    dims = _parse_dimensions_field(fm_text)
+    if dims:
+        fm["dimensions"] = dims
+
     return fm
 
 
@@ -89,6 +94,34 @@ def _parse_list_field(fm_text, field):
             else:
                 break
     return items
+
+
+def _parse_dimensions_field(fm_text):
+    """解析 frontmatter 中的 dimensions 巢狀 dict 欄位。
+
+    格式：
+    ```
+    dimensions:
+      機: value
+      料: value
+    ```
+
+    回傳 dict，無 dimensions 時回傳 None。
+    """
+    m = re.search(r'^dimensions:\s*$', fm_text, re.MULTILINE)
+    if not m:
+        return None
+
+    dims = {}
+    after = fm_text[m.end():]
+    for line in after.split("\n"):
+        em = re.match(r'^\s+(\S):\s*(.+)$', line)
+        if em:
+            dims[em.group(1)] = em.group(2).strip()
+        elif line.strip() and not line.startswith(" ") and ":" in line:
+            # 已離開 dimensions 區塊（遇到新的 top-level 欄位）
+            break
+    return dims if dims else None
 
 
 def extract_title(content):
