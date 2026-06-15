@@ -7,6 +7,7 @@ from hypermemory.core.pool import resolve_pool, index_path
 from hypermemory.core.index import parse_index
 from hypermemory.core.weight import calc_weight, format_score
 from hypermemory.core.node import parse_frontmatter, extract_title
+from hypermemory.core.print import safe_print
 
 
 def run(args):
@@ -49,12 +50,11 @@ def run(args):
         else:
             title_str = "(file not found)"
 
-        # Truncate long keyword lists
         kw_preview = ", ".join(keywords[:5])
         if len(keywords) > 5:
             kw_preview += f" ... (+{len(keywords)-5})"
 
-        marker = "✓" if exists else "✗"
-        print(f"  [{marker}] {kw_preview}")
-        print(f"         → {node_file}  ({score_str})  {title_str[:60]}")
-        print()
+        marker = "v" if exists else "x"
+        safe_print(f"  [{marker}] {kw_preview}")
+        safe_print(f"         -> {node_file}  ({score_str})  {title_str[:60]}")
+        safe_print()
