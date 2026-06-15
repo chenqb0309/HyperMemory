@@ -34,10 +34,31 @@ def find_best_cluster(query, entries):
     if not query_lower:
         return None, None, 0.0, {"matched": 0, "total": 0, "cluster": ""}
 
-    best_entry = None
-    best_score = 0.0
-    best_details = None
+    matched = find_all_clusters(query, entries, min_score=0.0)
+    if not matched:
+        return None, None, 0.0, {"matched": 0, "total": 0, "cluster": ""}
+    best = matched[0]
+    return (best["keywords"], best["node"], best["score"], best["details"])
 
+
+def find_all_clusters(query, entries, min_score=0.0):
+    """找出所有匹配分數超過 min_score 的 cluster，按分數降冪排序。
+
+    entries: list of (keywords_list, node_filename)
+    query: list of str
+    min_score: float，最低匹配分數（0.0 ~ 1.0）
+
+    回傳 list of dict:
+    {keywords, node, score, details: {matched, total, cluster, coverage}}
+    """
+    if not query or not entries:
+        return []
+
+    query_lower = [q.strip().lower() for q in query if q.strip()]
+    if not query_lower:
+        return []
+
+    results = []
     for kw_list, node_file in entries:
         cluster_lower = [k.strip().lower() for k in kw_list if k.strip()]
         if not cluster_lower:
@@ -55,22 +76,24 @@ def find_best_cluster(query, entries):
 
         # Score = matched query words / total query words
         score = matched / len(query_lower)
-
         # Add cluster coverage bonus
         coverage = matched / len(cluster_lower)
         combined = score + coverage * 0.2  # 20% weight on coverage
 
-        if combined > best_score:
-            best_score = combined
-            best_entry = (kw_list, node_file, combined)
-            best_details = {
+        if combined < min_score:
+            continue
+
+        results.append({
+            "keywords": kw_list,
+            "node": node_file,
+            "score": round(combined, 3),
+            "details": {
                 "matched": matched,
                 "total": len(query_lower),
                 "cluster": ", ".join(kw_list),
                 "coverage": f"{matched}/{len(cluster_lower)}",
-            }
+            },
+        })
 
-    if best_entry:
-        return best_entry
-
-    return None, None, 0.0, best_details
+    results.sort(key=lambda r: r["score"], reverse=True)
+    return results

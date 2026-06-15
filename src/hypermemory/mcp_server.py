@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from hypermemory.core.pool import resolve_pool, ensure_pool, index_path, list_nodes, node_path
 from hypermemory.core.index import parse_index
-from hypermemory.core.cluster import find_best_cluster
+from hypermemory.core.cluster import find_best_cluster, find_all_clusters
 from hypermemory.core.node import parse_frontmatter, extract_title
 from hypermemory.core.weight import calc_weight, format_score
 from hypermemory.core.dimensions import parse_dimensions, is_compatible, dimension_overlap_score
@@ -66,86 +66,163 @@ class HMTools:
             })
         return results
 
-    def recall(self, keywords):
+    def recall(self, keywords, limit=5):
+        """回憶與關鍵字匹配的經驗，按 recency 優先排序（最新在前）。"""
         entries = self._read_index()
-        kw_list = [k.strip() for k in keywords.split(",")]
-        result = find_best_cluster(kw_list, entries)
-        if not result or not result[0]:
+        kw_list = [k.strip() for k in keywords.split(",") if k.strip()]
+        if not kw_list:
+            return {"found": False, "message": "No keywords provided."}
+
+        # Find ALL matching clusters
+        matches = find_all_clusters(kw_list, entries, min_score=0.3)
+
+        if not matches:
             return {"found": False, "message": "No matching memory found."}
 
-        _, node_file, score = result
-        node_path = self.pool / node_file
-        if not node_path.exists():
-            return {"found": False, "message": f"Node file missing: {node_file}"}
+        # Read all matched nodes, collect with timestamps
+        nodes_with_ts = []
+        for m in matches:
+            node_file = m["node"]
+            node_path = self.pool / node_file
+            if not node_path.exists():
+                continue
+            with open(node_path, encoding="utf-8") as f:
+                content = f.read()
+            fm = parse_frontmatter(content)
+            ts = fm.get("timestamp", "0000")
+            title = extract_title(content)
+            weight = calc_weight(
+                fm.get("intensity", 1),
+                fm.get("total_mentions", 0),
+                fm.get("timestamp"),
+            )
+            node_dims = parse_dimensions(fm)
+            stats = get_confirmation_stats(self.pool, node_file)
+            mat = calc_maturation(
+                fm.get("intensity", 1),
+                stats["positive"],
+                stats["negative"],
+                fm.get("timestamp"),
+                node_dims=node_dims,
+            )
 
-        with open(node_path, encoding="utf-8") as f:
-            content = f.read()
+            nodes_with_ts.append({
+                "node": node_file,
+                "title": title,
+                "type": fm.get("node_type"),
+                "intensity": fm.get("intensity"),
+                "weight": round(weight, 2),
+                "maturation": mat["score"],
+                "timestamp": ts,
+                "tags": fm.get("tags", []),
+                "dimensions": node_dims,
+                "cluster_score": m["score"],
+                "cluster_keywords": m["keywords"],
+            })
 
-        fm = parse_frontmatter(content)
-        title = extract_title(content)
-        weight = calc_weight(
-            fm.get("intensity", 1),
-            fm.get("total_mentions", 0),
-            fm.get("timestamp"),
+        # Sort by timestamp descending (newest first)
+        nodes_with_ts.sort(
+            key=lambda n: n.get("timestamp", "0000") or "0000",
+            reverse=True,
         )
 
-        # Update total_mentions
-        mentions = fm.get("total_mentions", 0) + 1
-        import re
-        new_content = re.sub(r'(total_mentions:\s*)\d+', rf'\g<1>{mentions}', content)
-        with open(node_path, "w", encoding="utf-8") as f:
-            f.write(new_content)
+        # Update total_mentions for the top result only
+        if nodes_with_ts:
+            top = nodes_with_ts[0]
+            try:
+                top_path = self.pool / top["node"]
+                with open(top_path, encoding="utf-8") as f:
+                    orig_content = f.read()
+                mentions_match = re.search(r'total_mentions:\s*(\d+)', orig_content)
+                mentions = (int(mentions_match.group(1)) if mentions_match else 0) + 1
+                new_content = re.sub(
+                    r'(total_mentions:\s*)\d+',
+                    rf'\g<1>{mentions}',
+                    orig_content,
+                )
+                with open(top_path, "w", encoding="utf-8") as f:
+                    f.write(new_content)
+            except Exception:
+                pass  # Non-critical
 
         return {
             "found": True,
-            "node": node_file,
-            "title": title,
-            "type": fm.get("node_type"),
-            "intensity": fm.get("intensity"),
-            "weight": round(weight, 2),
-            "total_mentions": mentions,
-            "prenode": fm.get("prenode"),
-            "nextnodes": fm.get("nextnodes", []),
-            "score": round(score, 2),
-            "dimensions": parse_dimensions(fm),
+            "query": keywords,
+            "total": len(nodes_with_ts),
+            "results": nodes_with_ts[:limit],
         }
 
     def think(self, query):
-        """Think-triggered recall: 回答前的習慣性回憶。回傳相關經驗。"""
+        """習慣性回想：回傳最新 matching node（recency-first）。"""
         entries = self._read_index()
-        kw_list = [k.strip() for k in query.replace(",", " ").split()]
-        result = find_best_cluster(kw_list, entries)
+        kw_list = [k.strip() for k in query.replace(",", " ").split() if k.strip()]
+        if not kw_list:
+            return {"found": False, "message": "No query provided."}
 
-        if not result or not result[0]:
+        # Find ALL matching clusters
+        matches = find_all_clusters(kw_list, entries, min_score=0.3)
+
+        if not matches:
             return {"found": False, "message": "No relevant experience found."}
 
-        _, node_file, score = result
-        node_path = self.pool / node_file
-        if not node_path.exists():
-            return {"found": False, "message": f"Node file missing: {node_file}"}
+        # Read all matched nodes, collect with timestamps
+        candidates = []
+        for m in matches:
+            node_file = m["node"]
+            node_path = self.pool / node_file
+            if not node_path.exists():
+                continue
+            with open(node_path, encoding="utf-8") as f:
+                content = f.read()
+            fm = parse_frontmatter(content)
+            title = extract_title(content)
+            weight = calc_weight(
+                fm.get("intensity", 1),
+                fm.get("total_mentions", 0),
+                fm.get("timestamp"),
+            )
+            node_dims = parse_dimensions(fm)
+            stats = get_confirmation_stats(self.pool, node_file)
+            mat = calc_maturation(
+                fm.get("intensity", 1),
+                stats["positive"],
+                stats["negative"],
+                fm.get("timestamp"),
+                node_dims=node_dims,
+            )
+            candidates.append({
+                "node": node_file,
+                "title": title,
+                "type": fm.get("node_type"),
+                "intensity": fm.get("intensity"),
+                "weight": round(weight, 2),
+                "maturation": mat["score"],
+                "maturation_detail": mat,
+                "timestamp": fm.get("timestamp", "0000"),
+                "tags": fm.get("tags", []),
+                "dimensions": node_dims,
+                "cluster_score": m["score"],
+            })
 
-        with open(node_path, encoding="utf-8") as f:
-            content = f.read()
-
-        fm = parse_frontmatter(content)
-        title = extract_title(content)
-        weight = calc_weight(
-            fm.get("intensity", 1),
-            fm.get("total_mentions", 0),
-            fm.get("timestamp"),
+        # Sort by timestamp descending (newest first)
+        candidates.sort(
+            key=lambda n: n.get("timestamp", "0000") or "0000",
+            reverse=True,
         )
 
-        # Update total_mentions
-        mentions = fm.get("total_mentions", 0) + 1
-        import re
-        new_content = re.sub(r'(total_mentions:\s*)\d+', rf'\g<1>{mentions}', content)
-        with open(node_path, "w", encoding="utf-8") as f:
-            f.write(new_content)
+        best = candidates[0]
+
+        # Read full content for body preview
+        try:
+            with open(self.pool / best["node"], encoding="utf-8") as f:
+                full_content = f.read()
+        except Exception:
+            full_content = ""
 
         # Extract body preview
         body_lines = []
         body_start = False
-        for line in content.split("\n"):
+        for line in full_content.split("\n"):
             if body_start:
                 if line.startswith("## ") and "關聯" in line:
                     continue
@@ -156,29 +233,22 @@ class HMTools:
             elif line.startswith("## 正文") or (line.startswith("## ") and "關聯" not in line):
                 body_start = True
 
-        # Maturation info
-        node_dims = parse_dimensions(fm)
-        stats = get_confirmation_stats(self.pool, node_file)
-        mat = calc_maturation(
-            fm.get("intensity", 1),
-            stats["positive"],
-            stats["negative"],
-            fm.get("timestamp"),
-            node_dims=node_dims,
-        )
+        best["summary"] = " | ".join(body_lines) if body_lines else best["title"]
+
+        # Update total_mentions
+        try:
+            mentions_match = re.search(r'total_mentions:\s*(\d+)', full_content)
+            mentions = (int(mentions_match.group(1)) if mentions_match else 0) + 1
+            new_content = re.sub(r'(total_mentions:\s*)\d+', rf'\g<1>{mentions}', full_content)
+            with open(self.pool / best["node"], "w", encoding="utf-8") as f:
+                f.write(new_content)
+        except Exception:
+            pass
 
         return {
             "found": True,
-            "title": title,
-            "type": fm.get("node_type"),
-            "intensity": fm.get("intensity"),
-            "weight": round(weight, 2),
-            "maturation": mat["score"],
-            "maturation_detail": mat,
-            "summary": " | ".join(body_lines) if body_lines else title,
-            "prenode": fm.get("prenode"),
-            "tags": fm.get("tags", []),
-            "dimensions": node_dims,
+            "result": best,
+            "total_candidates": len(candidates),
         }
 
     def inspect(self, node_name):

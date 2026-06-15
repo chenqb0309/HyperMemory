@@ -1,12 +1,16 @@
-"""hm recall — 關鍵字匹配回憶"""
+"""hm recall — 關鍵字匹配回憶（recency-first，最新在前）"""
 
 import sys
+import re
+from datetime import datetime, timezone
 
 from hypermemory.core.pool import resolve_pool, index_path
 from hypermemory.core.index import parse_index
-from hypermemory.core.cluster import find_best_cluster
+from hypermemory.core.cluster import find_all_clusters
 from hypermemory.core.node import parse_frontmatter, extract_title
-from hypermemory.core.weight import calc_weight, format_score
+from hypermemory.core.weight import calc_weight
+from hypermemory.core.dimensions import parse_dimensions
+from hypermemory.core.maturation import get_confirmation_stats, calc_maturation
 
 
 def run(args):
@@ -30,73 +34,77 @@ def run(args):
         print("No keywords provided.")
         return
 
-    # Find best matching cluster
-    kw_list, node_file, score = find_best_cluster(query, entries)[:3]
+    kw_list = [k.strip() for k in query.split(",") if k.strip()]
 
-    if not kw_list:
-        print(f"No matching memory found for: {' '.join(query)}")
+    # Find ALL matching clusters
+    matches = find_all_clusters(kw_list, entries, min_score=0.3)
+
+    if not matches:
+        print(f"No matching memory found for: {' '.join(kw_list)}")
         return
 
-    # Read node
-    node_path = pool / node_file
-    if not node_path.exists():
-        print(f"Node file not found: {node_path}")
-        sys.exit(1)
+    # Read all matched nodes, collect with timestamps
+    nodes = []
+    for m in matches:
+        node_file = m["node"]
+        node_path = pool / node_file
+        if not node_path.exists():
+            continue
+        with open(node_path, encoding="utf-8") as f:
+            content = f.read()
 
-    with open(node_path, encoding="utf-8") as f:
-        content = f.read()
+        fm = parse_frontmatter(content)
+        ts = fm.get("timestamp", "0000")
+        title = extract_title(content)
+        weight = calc_weight(
+            fm.get("intensity", 1),
+            fm.get("total_mentions", 0),
+            fm.get("timestamp"),
+        )
 
-    fm = parse_frontmatter(content)
-    title = extract_title(content)
-    weight = calc_weight(
-        fm.get("intensity", 1),
-        fm.get("total_mentions", 0),
-        fm.get("timestamp"),
-    )
+        nodes.append({
+            "node": node_file,
+            "title": title,
+            "type": fm.get("node_type", "?"),
+            "intensity": fm.get("intensity", "?"),
+            "weight": round(weight, 2),
+            "timestamp": ts or "0000",
+            "tags": fm.get("tags", []),
+            "cluster_score": m["score"],
+        })
 
-    # Display result
-    cluster_name = ", ".join(kw_list[:5])
-    if len(kw_list) > 5:
-        cluster_name += f" ... (+{len(kw_list)-5})"
-    print(f"Matched cluster: {cluster_name}")
-    print(f"  Score: {score:.2f}")
-    print()
-    print(f"Node: {node_file}")
-    print(f"Title: {title}")
-    print(f"Type: T{fm.get('node_type', '?')}")
-    print(f"Intensity: {fm.get('intensity', '?')}")
-    print(f"Mentions: {fm.get('total_mentions', 0)}")
-    print(f"Weight: {format_score(weight)}")
-    print()
+    # Sort by timestamp descending (newest first)
+    nodes.sort(key=lambda n: n["timestamp"], reverse=True)
 
-    # Show body content (first 20 lines after frontmatter and body links)
-    lines = content.split("\n")
-    body_start = 0
-    for i, line in enumerate(lines):
-        if line.startswith("## "):
-            body_start = i + 1
-            break
+    # Display results
+    for i, n in enumerate(nodes):
+        ts_display = n["timestamp"][:10] if n["timestamp"] != "0000" else "(no date)"
+        tags_str = ", ".join(n["tags"][:3]) if n["tags"] else ""
+        print(f"{i+1}. {n['title']}")
+        print(f"   Node: {n['node']}")
+        print(f"   Type: T{n['type']}  Intensity: {n['intensity']}  "
+              f"Weight: {n['weight']}  Date: {ts_display}")
+        if tags_str:
+            print(f"   Tags: {tags_str}")
+        print()
 
-    print("--- Content ---")
-    for line in lines[body_start:body_start + 20]:
-        print(line)
-    if len(lines) > body_start + 20:
-        print("...")
-
-    # Update total_mentions (+1)
-    if not args.dry_run:
+    # Update total_mentions for the top result
+    if not args.dry_run and nodes:
+        top = nodes[0]
+        top_path = pool / top["node"]
+        with open(top_path, encoding="utf-8") as f:
+            content = f.read()
+        fm = parse_frontmatter(content)
         mention_tag = fm.get("total_mentions", 0)
         if isinstance(mention_tag, int):
             mention_tag += 1
         else:
             mention_tag = 1
-        # Simple replacement
-        import re
         new_content = re.sub(
-            r'(total_mentions:\s*)\d+',
-            rf'\g<1>{mention_tag}',
+            r"(total_mentions:\s*)\d+",
+            rf"\g<1>{mention_tag}",
             content,
         )
-        with open(node_path, "w", encoding="utf-8") as f:
+        with open(top_path, "w", encoding="utf-8") as f:
             f.write(new_content)
-        print(f"\n(total_mentions updated to {mention_tag})")
+        print(f"(total_mentions for {top['node']} updated to {mention_tag})")
