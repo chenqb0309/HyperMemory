@@ -6,6 +6,7 @@ from hypermemory.core.pool import resolve_pool, index_path, list_nodes
 from hypermemory.core.index import parse_index, update_index_entry
 from hypermemory.core.node import parse_frontmatter, extract_title
 from hypermemory.core.weight import calc_weight, format_score
+from hypermemory.core.log import recent as recent_logs
 
 
 def run(args):
@@ -15,19 +16,23 @@ def run(args):
         _recalc(pool)
     elif args.action == "dreamloop":
         _dreamloop(pool)
+    elif args.action == "reflect":
+        _reflect(pool, args.days)
     elif args.action == "all":
         print("=== Recalc ===")
         _recalc(pool)
         print()
         print("=== DreamLoop ===")
         _dreamloop(pool)
+        print()
+        print("=== Reflection ===")
+        _reflect(pool, args.days)
     else:
         print(f"Unknown action: {args.action}")
         sys.exit(1)
 
 
 def _recalc(pool):
-    """權重重算：掃描所有 cluster 鏈，確保 index 指向最高權重 node"""
     idx_path = index_path(pool)
     if not idx_path.exists():
         print("Index not found.")
@@ -50,7 +55,6 @@ def _recalc(pool):
             print(f"  [✗] {current_node} — file not found, skipping")
             continue
 
-        # Walk the chain: from current node, backtrack via prenode to root
         chain_nodes = []
         walk = current_node
         visited = set()
@@ -69,10 +73,8 @@ def _recalc(pool):
         if not chain_nodes:
             continue
 
-        # Calculate weights for all nodes in chain
         best_node = None
         best_weight = -1
-        node_weights = []
 
         for node_name in chain_nodes:
             np = pool / node_name
@@ -86,12 +88,10 @@ def _recalc(pool):
                 fm.get("total_mentions", 0),
                 fm.get("timestamp"),
             )
-            node_weights.append((node_name, weight, fm.get("intensity", 1), fm.get("total_mentions", 0)))
             if weight > best_weight:
                 best_weight = weight
                 best_node = node_name
 
-        # Update index if pointer changed
         if best_node and best_node != current_node:
             index_content = update_index_entry(index_content, current_node, best_node)
             changes += 1
@@ -108,7 +108,6 @@ def _recalc(pool):
 
 
 def _dreamloop(pool):
-    """關鍵字收斂：去重、合併重疊 cluster、清理孤立關鍵字"""
     idx_path = index_path(pool)
     if not idx_path.exists():
         print("Index not found.")
@@ -124,7 +123,7 @@ def _dreamloop(pool):
 
     print(f"DreamLoop: {len(entries)} clusters")
 
-    # Scan 1: Dedup keywords within each cluster
+    # Scan 1: Dedup keywords
     changes = 0
     new_lines = []
     for line in content.split("\n"):
@@ -133,7 +132,6 @@ def _dreamloop(pool):
             kw_str = m.group(1)
             node_file = m.group(2)
             keywords = [k.strip() for k in kw_str.split(",")]
-            # Dedup
             seen = set()
             deduped = []
             for k in keywords:
@@ -152,7 +150,7 @@ def _dreamloop(pool):
         content = "\n".join(new_lines)
         print(f"  Scan 1: {changes} cluster(s) deduped")
 
-    # Scan 2: Check for orphan keywords (node file missing)
+    # Scan 2: Orphan removal
     orphans = 0
     new_lines = []
     for line in content.split("\n"):
@@ -162,17 +160,120 @@ def _dreamloop(pool):
             np = pool / node_file
             if not np.exists():
                 orphans += 1
-                print(f"  [✗] Orphan cluster: {node_file} (file not found)")
-                continue  # Skip this line
+                print(f"  [✗] Orphan: {node_file}")
+                continue
         new_lines.append(line)
 
     if orphans > 0:
         content = "\n".join(new_lines)
         print(f"  Scan 2: {orphans} orphan cluster(s) removed")
 
-    # Write changes
     with open(idx_path, "w", encoding="utf-8") as f:
         f.write(content)
 
     if changes == 0 and orphans == 0:
         print("  No changes needed")
+
+
+def _reflect(pool, days=3):
+    """Reflection Loop：掃描 log，比對既有 node，自動刻錄新經驗"""
+    from hypermemory.core.cluster import find_best_cluster
+    from hypermemory.core.log import capture
+    from hypermemory.commands.imprint import _strip_body_links, _generate_body_links, _extract_keywords, _sync_parent_links, _format_entry
+    from datetime import datetime, timezone
+    import re as re_module
+
+    idx_path = index_path(pool)
+    entries = []
+    if idx_path.exists():
+        with open(idx_path, encoding="utf-8") as f:
+            entries = parse_index(f.read())
+
+    logs = recent_logs(days=days)
+    if not logs:
+        print(f"Reflection: no log entries in the last {days} days")
+        return
+
+    print(f"Reflection: scanning {len(logs)} log entries from {days} day(s)")
+
+    imprinted = 0
+    skipped = 0
+
+    for log_entry in logs:
+        content = log_entry.get("content", "")
+        tags = log_entry.get("tags", [])
+        if not content:
+            continue
+
+        # Extract simple keywords from content
+        stopwords = {"the","and","for","are","but","not","you","all","can","had","her","was","one","our","out","has","have","been","some","them","than","that","this","very","just","with","from","they","what","when","where","which","their","there","would","could","about","should","into","over","after","other"}
+        words = [w.lower().strip(".,!?;:()[]「」") for w in content.split()]
+        keywords = [w for w in words if len(w) > 2 and w not in stopwords]
+        # Dedup + limit
+        seen = set()
+        keywords = [k for k in keywords if not (k in seen or seen.add(k))][:8]
+
+        # Combine with tags
+        all_keywords = list(set(keywords + tags))
+
+        # Check if already covered
+        result = find_best_cluster(all_keywords, entries)
+        if result[0] is not None and result[2] > 0.5:
+            skipped += 1
+            continue
+
+        # Not covered — auto-imprint
+        title = log_entry.get("title") or content[:60].rstrip()
+        timestamp = log_entry.get("timestamp", datetime.now(timezone.utc).isoformat())
+        intensity = min(5 + len(tags), 8)  # Higher if tagged
+
+        tags_str = ", ".join(f'"{t}"' for t in tags[:5])
+        node_content = f"""---
+type: episodic_memory
+timestamp: {timestamp}
+node_type: 1
+prenode: null
+nextnodes: null
+ref_by: null
+intensity: {intensity}
+total_mentions: 1
+tags: [{tags_str}]
+---
+
+# {title}
+
+{content}
+"""
+        # Normalize body links
+        node_content = _strip_body_links(node_content)
+        node_content = _generate_body_links(node_content)
+
+        # Write file
+        date_str = timestamp[:10]
+        slug = re_module.sub(r'[^a-z0-9]+', '-', title.lower())[:30].strip('-')
+        filename = f"{date_str}-reflection-{slug}.md"
+        dest_path = pool / filename
+
+        if dest_path.exists():
+            skipped += 1
+            continue
+
+        with open(dest_path, "w", encoding="utf-8") as f:
+            f.write(node_content)
+
+        # Update index (Type 1 — new cluster)
+        new_keywords = _extract_keywords(
+            {"tags": tags + keywords[:3]}, filename
+        )
+        index_entry = _format_entry(new_keywords, filename)
+
+        with open(idx_path, "a" if idx_path.exists() else "w", encoding="utf-8") as f:
+            if idx_path.exists():
+                f.write(index_entry + "\n")
+            else:
+                f.write("# HyperMemory Pool Index\n\n" + index_entry + "\n")
+
+        imprinted += 1
+        print(f"  + {filename} ({intensity}/10) — {title[:50]}")
+
+    print(f"\nResult: {imprinted} imprinted, {skipped} skipped (already covered)")

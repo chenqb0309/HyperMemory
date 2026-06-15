@@ -17,9 +17,14 @@ Phase 3: 維護循環      ✅
 | `hm recall` | 關鍵字匹配回憶 | ✅ |
 | `hm inspect` | 檢視 node 與鏈結 | ✅ |
 | `hm imprint` | 從檔案刻錄（自動 body link） | ✅ |
-| `hm think` | 習慣性回想 | ✅ |
-| `hm maintain` | 維護循環（recalc/dreamloop/all） | ✅ |
+| `hm think` | 習慣性回想（回答前使用） | ✅ |
+| `hm maintain recalc` | 權重重算 | ✅ |
+| `hm maintain dreamloop` | 關鍵字去重 | ✅ |
+| `hm maintain reflect` | 反思刻錄（從 log 自動產生 node） | ✅ |
+| `hm maintain all` | 一次跑全部維護 | ✅ |
 | `hm info` | 記憶池健康狀態 | ✅ |
+| `hm log capture` | 紀錄經驗到 log | ✅ |
+| `hm log recent` | 顯示最近 log | ✅ |
 | `hm serve` | MCP server（stdio） | ✅ |
 
 ## MCP Server Tools
@@ -34,12 +39,14 @@ Phase 3: 維護循環      ✅
 
 ## 基礎建設
 
-- pyproject.toml（相依、entry point）✅
-- Unit tests（33 tests，4 modules）✅
-- README（完整指令）✅
-
-## 產品化待辦
-
-- [ ] GitHub Actions CI（自動跑 test）
-- [ ] PyPI 發布
-- [ ] MCP 整合文件（Claude Desktop / Cline 設定範例）
+| 項目 | 狀態 |
+|------|------|
+| pyproject.toml | ✅ |
+| Unit tests（33 tests, 4 modules） | ✅ |
+| GitHub Actions CI（3.10/3.11/3.12） | ✅ |
+| 邊界錯誤處理 | ✅ |
+| Session log | ✅ |
+| Reflection Loop | ✅ |
+| README | ✅ |
+| MCP server 實戰驗證 | ⬜ |
+| PyPI 發布 | ⬜ |
