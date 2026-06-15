@@ -7,6 +7,7 @@ from hypermemory.core.index import parse_index, update_index_entry
 from hypermemory.core.node import parse_frontmatter, extract_title
 from hypermemory.core.weight import calc_weight, format_score
 from hypermemory.core.log import recent as recent_logs
+from hypermemory.core.print import safe_print
 
 
 def run(args):
@@ -52,7 +53,7 @@ def _recalc(pool):
     for keywords, current_node in entries:
         node_path = pool / current_node
         if not node_path.exists():
-            print(f"  [✗] {current_node} — file not found, skipping")
+            safe_print(f"  [x] {current_node} — file not found, skipping")
             continue
 
         chain_nodes = []
@@ -95,9 +96,9 @@ def _recalc(pool):
         if best_node and best_node != current_node:
             index_content = update_index_entry(index_content, current_node, best_node)
             changes += 1
-            print(f"  ↑ {current_node} → {best_node} (w={format_score(best_weight)})")
+            safe_print(f"  ^ {current_node} → {best_node} (w={format_score(best_weight)})")
         elif best_node:
-            print(f"  ✓ {current_node} (w={format_score(best_weight)})")
+            safe_print(f"  v {current_node} (w={format_score(best_weight)})")
 
     if changes > 0:
         with open(idx_path, "w", encoding="utf-8") as f:
@@ -160,7 +161,7 @@ def _dreamloop(pool):
             np = pool / node_file
             if not np.exists():
                 orphans += 1
-                print(f"  [✗] Orphan: {node_file}")
+                safe_print(f"  [x] Orphan: {node_file}")
                 continue
         new_lines.append(line)
 
@@ -172,7 +173,7 @@ def _dreamloop(pool):
         f.write(content)
 
     if changes == 0 and orphans == 0:
-        print("  No changes needed")
+        safe_print("  No changes needed")
 
 
 def _reflect(pool, days=3):
@@ -293,4 +294,4 @@ tags: [{tags_str}]
         imprinted += 1
         print(f"  + {filename} ({intensity}/10) — {title[:50]}")
 
-    print(f"\nResult: {imprinted} imprinted, {skipped} skipped (already covered)")
+    safe_print(f"\nResult: {imprinted} imprinted, {skipped} skipped (already covered)")

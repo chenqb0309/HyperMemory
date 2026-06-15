@@ -6,7 +6,7 @@ from pathlib import Path
 from hypermemory.core.pool import resolve_pool, node_path
 from hypermemory.core.node import parse_frontmatter, extract_title, extract_body_link_section
 from hypermemory.core.weight import calc_weight, format_score
-from hypermemory.core.print import safe_print, safe
+from hypermemory.core.print import safe_print
 
 
 def run(args):
