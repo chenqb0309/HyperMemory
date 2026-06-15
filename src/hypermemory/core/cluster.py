@@ -43,8 +43,13 @@ def find_best_cluster(query, entries):
         if not cluster_lower:
             continue
 
-        # Direct match count
-        matched = sum(1 for q in query_lower if q in cluster_lower)
+        # Direct match count (exact + substring for CJK support)
+        matched = 0
+        for q in query_lower:
+            for c in cluster_lower:
+                if q in c or c in q:
+                    matched += 1
+                    break
         if matched == 0:
             continue
 

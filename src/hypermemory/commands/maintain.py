@@ -179,7 +179,8 @@ def _reflect(pool, days=3):
     """Reflection Loop：掃描 log，比對既有 node，自動刻錄新經驗"""
     from hypermemory.core.cluster import find_best_cluster
     from hypermemory.core.log import capture
-    from hypermemory.commands.imprint import _strip_body_links, _generate_body_links, _extract_keywords, _sync_parent_links, _format_entry
+    from hypermemory.core.node import strip_body_links, generate_body_links, extract_keywords
+    from hypermemory.core.index import sync_parent_links, format_index_entry
     from datetime import datetime, timezone
     import re as re_module
 
@@ -205,13 +206,29 @@ def _reflect(pool, days=3):
         if not content:
             continue
 
-        # Extract simple keywords from content
-        stopwords = {"the","and","for","are","but","not","you","all","can","had","her","was","one","our","out","has","have","been","some","them","than","that","this","very","just","with","from","they","what","when","where","which","their","there","would","could","about","should","into","over","after","other"}
-        words = [w.lower().strip(".,!?;:()[]「」") for w in content.split()]
-        keywords = [w for w in words if len(w) > 2 and w not in stopwords]
-        # Dedup + limit
-        seen = set()
-        keywords = [k for k in keywords if not (k in seen or seen.add(k))][:8]
+        # Detect CJK content
+        has_cjk = any('\u4e00' <= c <= '\u9fff' for c in content)
+
+        if has_cjk:
+            # Chinese: extract 2-char and 3-char segments as keywords
+            import re as re_cjk
+            cjk_chars = re_cjk.findall(r'[\u4e00-\u9fff]+', content)
+            keywords = []
+            for segment in cjk_chars:
+                for i in range(len(segment)):
+                    for j in range(2, 4):
+                        if i + j <= len(segment):
+                            kw = segment[i:i+j]
+                            if kw not in keywords:
+                                keywords.append(kw)
+            keywords = keywords[:12]
+        else:
+            # English: split by space + stopword filtering
+            stopwords = {"the","and","for","are","but","not","you","all","can","had","her","was","one","our","out","has","have","been","some","them","than","that","this","very","just","with","from","they","what","when","where","which","their","there","would","could","about","should","into","over","after","other"}
+            words = [w.lower().strip(".,!?;:()[]「」") for w in content.split()]
+            keywords = [w for w in words if len(w) > 2 and w not in stopwords]
+            seen = set()
+            keywords = [k for k in keywords if not (k in seen or seen.add(k))][:8]
 
         # Combine with tags
         all_keywords = list(set(keywords + tags))
@@ -245,8 +262,8 @@ tags: [{tags_str}]
 {content}
 """
         # Normalize body links
-        node_content = _strip_body_links(node_content)
-        node_content = _generate_body_links(node_content)
+        node_content = strip_body_links(node_content)
+        node_content = generate_body_links(node_content)
 
         # Write file
         date_str = timestamp[:10]
@@ -262,10 +279,10 @@ tags: [{tags_str}]
             f.write(node_content)
 
         # Update index (Type 1 — new cluster)
-        new_keywords = _extract_keywords(
+        new_keywords = extract_keywords(
             {"tags": tags + keywords[:3]}, filename
         )
-        index_entry = _format_entry(new_keywords, filename)
+        index_entry = format_index_entry(new_keywords, filename)
 
         with open(idx_path, "a" if idx_path.exists() else "w", encoding="utf-8") as f:
             if idx_path.exists():

@@ -198,7 +198,8 @@ class HMTools:
 
     def imprint(self, content, filename=None):
         """從文字內容刻錄新 node（MCP 版本，無檔案路徑）"""
-        from hypermemory.commands.imprint import _strip_body_links, _generate_body_links, _extract_keywords, _sync_parent_links, _format_entry
+        from hypermemory.core.node import strip_body_links, generate_body_links, extract_keywords
+        from hypermemory.core.index import sync_parent_links, format_index_entry
 
         fm = parse_frontmatter(content)
 
@@ -226,8 +227,8 @@ class HMTools:
         if dest_path.exists():
             return {"success": False, "error": f"Node already exists: {dest_name}"}
 
-        content = _strip_body_links(content)
-        content = _generate_body_links(content)
+        content = strip_body_links(content)
+        content = generate_body_links(content)
 
         with open(dest_path, "w", encoding="utf-8") as f:
             f.write(content)
@@ -263,11 +264,11 @@ class HMTools:
                     old_weight = calc_weight(old_fm.get("intensity", 1), old_fm.get("total_mentions", 0), old_fm.get("timestamp"))
                 pointer = dest_name if new_weight > old_weight else old_node
                 index_content = update_index_entry(index_content, old_node, pointer, new_keywords)
-                _sync_parent_links(self.pool, prenode, dest_name)
+                sync_parent_links(self.pool, prenode, dest_name)
             else:
-                index_content += _format_entry(new_keywords, dest_name) + "\n"
+                index_content += format_index_entry(new_keywords, dest_name) + "\n"
         else:
-            index_content += _format_entry(new_keywords, dest_name) + "\n"
+            index_content += format_index_entry(new_keywords, dest_name) + "\n"
 
         with open(idx_path, "w", encoding="utf-8") as f:
             f.write(index_content)

@@ -109,3 +109,54 @@ def extract_body_link_section(content):
     if m:
         return m.group(1).strip()
     return None
+
+
+# ─── Body Link Generation ─────────────────────────────────
+
+
+def strip_body_links(content):
+    """移除 body 中既有的 ## 關聯 區塊（保留 frontmatter 中的 wikilinks）"""
+    return re.sub(r'\n##\s*關聯\n.*?(?=\n##|\Z)', '', content, flags=re.DOTALL)
+
+
+def generate_body_links(content):
+    """根據 frontmatter 自動產生 body link ## 關聯 區塊。
+    寫入位置：在第一個 heading（# 或 ##）之後，下一個區塊之前。
+    """
+    fm = parse_frontmatter(content)
+    prenode = fm.get("prenode")
+    nextnodes = fm.get("nextnodes", [])
+    ref_by = fm.get("ref_by", [])
+
+    lines = []
+    if prenode:
+        lines.append(f"- 前驅：[[{prenode}]]")
+    if nextnodes:
+        children_str = "、".join(f"[[{c}]]" for c in nextnodes)
+        lines.append(f"- 後繼：{children_str}")
+    if ref_by:
+        refs_str = "、".join(f"[[{r}]]" for r in ref_by)
+        lines.append(f"- 參考來源：{refs_str}")
+
+    if not lines:
+        return content
+
+    link_section = "\n\n## 關聯\n" + "\n".join(lines) + "\n"
+
+    heading_match = re.search(r'^#{1,3}\s+.+$', content, re.MULTILINE)
+    if not heading_match:
+        return content
+
+    insert_pos = heading_match.end()
+    return content[:insert_pos] + link_section + content[insert_pos:]
+
+
+def extract_keywords(fm, filename):
+    """從 frontmatter tags + 檔名提取關鍵字"""
+    keywords = list(fm.get("tags", []))
+    name_part = filename.replace(".md", "").split("-", 3)
+    if len(name_part) >= 4:
+        desc = name_part[3].replace("-", " ")
+        if desc not in keywords:
+            keywords.append(desc)
+    return keywords

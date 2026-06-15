@@ -44,6 +44,18 @@ def test_find_best_cluster_exact():
     assert score > 0
 
 
+def test_chinese_substring_match():
+    """中文 substring 匹配：查詢「設計」可命中 cluster 中的「設計哲學」"""
+    entries = [(["設計哲學", "portable-doc", "vault-as-source"], "design.md")]
+    result = find_best_cluster(["設計"], entries)
+    kw, node, score = result[:3]
+    assert node == "design.md"
+    assert score > 0
+    result = find_best_cluster(["設計", "哲學"], entries)
+    kw, node, score = result[:3]
+    assert node == "design.md"
+
+
 def test_find_best_cluster_no_match():
     result = find_best_cluster(["python", "javascript"], SAMPLE_ENTRIES)
     kw, node, score = result[:3]
