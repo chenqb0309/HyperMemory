@@ -244,7 +244,7 @@ class HMTools:
             entries = []
 
         prenode = fm.get("prenode")
-        new_keywords = _extract_keywords(fm, dest_name)
+        new_keywords = extract_keywords(fm, dest_name)
 
         if prenode:
             pre_entry = None
