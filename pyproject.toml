@@ -1,0 +1,11 @@
+[project]
+name = "hypermemory"
+version = "1.0.0"
+description = "AI 記憶放大器 — CLI 工具"
+requires-python = ">=3.10"
+
+[project.scripts]
+hm = "hypermemory.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
