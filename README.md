@@ -12,13 +12,9 @@ cd HyperMemory
 pip install -e .
 ```
 
-需要 Python 3.10+。
+需要 Python 3.9+。
 
-MCP server 需要額外套件（選擇性）：
-
-```bash
-pip install -e ".[mcp]"
-```
+MCP server 內建支援（不需額外套件）：
 
 ## 快速開始
 
@@ -62,7 +58,8 @@ hm list                               # 使用預設池
 |------|------|
 | `hm maintain recalc` | 權重重算。掃描所有 cluster 鏈，確保 index 指向最高權重 node |
 | `hm maintain dreamloop` | 關鍵字去重 + 孤立 cluster 清理 |
-| `hm maintain all` | 一次跑 recalc + dreamloop |
+| `hm maintain reflect` | Reflection Loop — 掃 session log 自動刻錄新 node |
+| `hm maintain all` | 一次跑 recalc + dreamloop + reflect |
 
 ### 監控
 
@@ -70,25 +67,50 @@ hm list                               # 使用預設池
 |------|------|
 | `hm list` | 列出所有 cluster、當前 node、權重 |
 | `hm info` | 記憶池健康狀態：node/cluster/type/weight 統計 |
+| `hm daemon status` | 查詢 daemon 是否存活、下次排程 |
+| `hm daemon log` | 顯示 daemon 日誌 |
 
 ### MCP Server
 
 | 指令 | 功能 |
 |------|------|
-| `hm serve` | 啟動 MCP server（stdio 協定）。支援 hm_list, hm_recall, hm_think, hm_inspect, hm_imprint |
+| `hm serve` | 啟動 MCP server（stdio 協定）。支援 8 個 tools |
+
+### 背景排程（Daemon）
+
+| 指令 | 功能 |
+|------|------|
+| `hm daemon start` | 啟動背景 daemon（自動排程維護） |
+| `hm daemon stop` | 優雅關閉 |
+| `hm daemon status` | 查詢執行狀態與下次排程時間 |
+| `hm daemon log` | 顯示 daemon 日誌 |
+
+Daemon 自動執行以下排程：
+
+| 時間 | 動作 |
+|------|------|
+| 每天 23:00 | Reflection（掃 log 自動刻錄） |
+| 每天 03:00 | Recalc（權重重算） |
+| 每週日 04:00 | DreamLoop（關鍵字去重） |
+
+```bash
+# 一行啟動完整生命週期
+hm daemon start
+```
 
 ## MCP Server 設定範例
 
-```json
-{
-  "mcpServers": {
-    "hypermemory": {
-      "command": "python3",
-      "args": ["-m", "hypermemory", "serve", "--pool", "/path/to/pool"]
-    }
-  }
-}
+### Hermes Agent
+
+```yaml
+mcp_servers:
+  hypermemory:
+    command: hm
+    args: ["serve"]
 ```
+
+### 通用 MCP Client (Claude Desktop / Cline / Cursor)
+
 
 ## 核心設計
 

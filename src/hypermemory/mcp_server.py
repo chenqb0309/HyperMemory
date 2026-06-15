@@ -282,6 +282,103 @@ class HMTools:
             "weight": round(weight, 2),
         }
 
+    def daemon_status(self):
+        """查詢 daemon 狀態"""
+        from hypermemory.commands.daemon import _pid_path, _log_path, _sched_path, ACTION_NAMES
+        from datetime import datetime, timedelta
+        import json
+
+        pid_path = _pid_path()
+        log_path = _log_path()
+        sched_path = _sched_path()
+
+        # Check if running
+        running = False
+        pid = None
+        if pid_path.exists():
+            try:
+                pid = int(pid_path.read_text().strip())
+                import os
+                os.kill(pid, 0)
+                running = True
+            except (OSError, ValueError):
+                pass
+
+        result = {
+            "running": running,
+            "pid": pid,
+        }
+
+        # Next schedule
+        if sched_path.exists():
+            try:
+                with open(sched_path) as f:
+                    schedule = json.load(f)
+                now = datetime.now()
+                tasks = []
+                for action, cfg in schedule.items():
+                    target = now.replace(hour=cfg["hour"], minute=cfg["minute"], second=0, microsecond=0)
+                    if target <= now:
+                        target += timedelta(days=1)
+                    if cfg.get("dow") is not None:
+                        days_ahead = cfg["dow"] - target.weekday()
+                        if days_ahead <= 0:
+                            days_ahead += 7
+                        target += timedelta(days=days_ahead)
+                    tasks.append({
+                        "action": action,
+                        "label": ACTION_NAMES.get(action, action),
+                        "next_run": target.isoformat(),
+                        "next_run_human": target.strftime("%Y-%m-%d %H:%M"),
+                    })
+                result["schedule"] = sorted(tasks, key=lambda t: t["next_run"])
+            except Exception as e:
+                result["schedule_error"] = str(e)
+
+        # Recent log
+        if log_path.exists():
+            try:
+                with open(log_path) as f:
+                    lines = f.readlines()
+                result["recent_log"] = [l.rstrip() for l in lines[-10:]]
+            except OSError:
+                pass
+
+        return result
+
+    def pool_info(self):
+        """記憶池健康狀態"""
+        from hypermemory.core.pool import index_path, list_nodes, node_path
+
+        idx = index_path(self.pool)
+        entries = []
+        if idx.exists():
+            from hypermemory.core.index import parse_index
+            entries = parse_index(idx.read_text(encoding="utf-8"))
+
+        nodes = list(list_nodes(self.pool))
+        orphan_count = 0
+        for kw, node_file in entries:
+            if not (self.pool / node_file).exists():
+                orphan_count += 1
+
+        return {
+            "pool": str(self.pool),
+            "cluster_count": len(entries),
+            "node_count": len(nodes),
+            "index_exists": idx.exists(),
+            "orphan_clusters": orphan_count,
+        }
+
+    def maintain_now(self, action):
+        """立即觸發維護循環"""
+        from hypermemory.commands.daemon import run_maintain
+        try:
+            run_maintain(self.pool, action)
+            return {"success": True, "action": action}
+        except Exception as e:
+            return {"success": False, "action": action, "error": str(e)}
+
 
 TOOLS = {
     "hm_list": {
@@ -347,6 +444,33 @@ TOOLS = {
             "required": ["content"],
         },
     },
+    "hm_daemon_status": {
+        "description": "查詢內建排程器（hm daemon）是否存活、下次排程時間與最近日誌",
+        "input_schema": {
+            "type": "object",
+            "properties": {},
+        },
+    },
+    "hm_pool_info": {
+        "description": "記憶池健康狀態：node 總數、cluster 總數、index 完整性",
+        "input_schema": {
+            "type": "object",
+            "properties": {},
+        },
+    },
+    "hm_maintain_now": {
+        "description": "立即觸發維護循環。action 可為 recalc / dreamloop / reflect / all",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "維護動作：recalc（權重重算）、dreamloop（關鍵字去重）、reflect（自動刻錄）、all（全部）",
+                }
+            },
+            "required": ["action"],
+        },
+    },
 }
 
 
@@ -357,11 +481,13 @@ def handle_request(tools, request):
 
     # JSON-RPC
     if method == "initialize":
+        params = req.get("params", {})
+        client_version = params.get("protocolVersion", "2024-11-05")
         return json.dumps({
             "jsonrpc": "2.0",
             "id": req_id,
             "result": {
-                "protocolVersion": "0.1.0",
+                "protocolVersion": client_version,
                 "capabilities": {
                     "tools": {}
                 },
@@ -422,6 +548,19 @@ def handle_request(tools, request):
                 result = tools.imprint(content, filename)
                 text = json.dumps(result, ensure_ascii=False, indent=2)
 
+            elif tool_name == "hm_daemon_status":
+                result = tools.daemon_status()
+                text = json.dumps(result, ensure_ascii=False, indent=2)
+
+            elif tool_name == "hm_pool_info":
+                result = tools.pool_info()
+                text = json.dumps(result, ensure_ascii=False, indent=2)
+
+            elif tool_name == "hm_maintain_now":
+                action = arguments.get("action", "all")
+                result = tools.maintain_now(action)
+                text = json.dumps(result, ensure_ascii=False, indent=2)
+
             else:
                 raise ValueError(f"Unknown tool: {tool_name}")
 
@@ -447,41 +586,26 @@ def handle_request(tools, request):
 def main(pool=None):
     tools = HMTools(pool)
 
-    # MCP stdio transport with Content-Length framing
+    # MCP stdio transport with newline-delimited JSON (Python MCP SDK format)
     buffer = b""
     while True:
         try:
-            chunk = sys.stdin.buffer.read(4096)
+            chunk = sys.stdin.buffer.read1(4096)
             if not chunk:
                 break
             buffer += chunk
 
-            while b"Content-Length:" in buffer:
-                # Parse headers
-                header_end = buffer.find(b"\r\n\r\n")
-                if header_end == -1:
-                    break
-
-                headers = buffer[:header_end].decode()
-                body_start = header_end + 4
-
-                m = re.search(r"Content-Length:\s*(\d+)", headers)
-                if not m:
-                    buffer = buffer[body_start:]
+            # Process complete lines (newline-delimited JSON)
+            while b"\n" in buffer:
+                line, buffer = buffer.split(b"\n", 1)
+                line = line.strip()
+                if not line:
                     continue
-
-                content_length = int(m.group(1))
-                if len(buffer) < body_start + content_length:
-                    break  # Wait for more data
-
-                body = buffer[body_start:body_start + content_length].decode()
-                buffer = buffer[body_start + content_length:]
-
+                body = line.decode()
                 response = handle_request(tools, body)
                 if response:
                     resp_bytes = response.encode()
-                    sys.stdout.buffer.write(f"Content-Length: {len(resp_bytes)}\r\n\r\n".encode())
-                    sys.stdout.buffer.write(resp_bytes)
+                    sys.stdout.buffer.write(resp_bytes + b"\n")
                     sys.stdout.buffer.flush()
 
         except (EOFError, KeyboardInterrupt):
@@ -492,8 +616,7 @@ def main(pool=None):
                 "id": None,
                 "error": {"code": -32700, "message": str(e)},
             })
-            sys.stdout.buffer.write(f"Content-Length: {len(error_resp)}\r\n\r\n".encode())
-            sys.stdout.buffer.write(error_resp.encode())
+            sys.stdout.buffer.write(error_resp.encode() + b"\n")
             sys.stdout.buffer.flush()
 
 

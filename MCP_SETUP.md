@@ -11,19 +11,31 @@ hm serve
 hm serve --pool /path/to/pool
 ```
 
-MCP server 使用 stdio 傳輸，透過 `Content-Length` 框架傳遞 JSON-RPC 訊息。
+MCP server 使用 stdio 傳輸，透過 newline-delimited JSON 通訊（MCP Python SDK 標準格式）。
 
-## 可用工具
+## MCP tools（8 個）
 
-| 工具 | 功能 |
+| Tool | 功能 |
 |------|------|
 | `hm_list` | 列出所有 cluster 與當前 node |
 | `hm_recall` | 關鍵字匹配回憶（回傳完整 node） |
 | `hm_think` | 回答前習慣性回想（回傳摘要） |
 | `hm_inspect` | 檢視單一 node 詳細資訊 |
 | `hm_imprint` | 從內容刻錄新 node |
+| `hm_daemon_status` | 查詢 daemon 存活、排程、最近日誌 |
+| `hm_pool_info` | 記憶池健康狀態（node/cluster/index） |
+| `hm_maintain_now` | 立即觸發 recalc / dreamloop / reflect |
 
 ## Client 設定
+
+### Hermes Agent
+
+```yaml
+mcp_servers:
+  hypermemory:
+    command: hm
+    args: ["serve"]
+```
 
 ### Claude Desktop
 

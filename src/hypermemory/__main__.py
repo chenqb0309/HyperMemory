@@ -51,6 +51,15 @@ def build_parser():
     serve_p = subparsers.add_parser("serve", help="啟動 MCP server（stdio 協定）")
     serve_p.set_defaults(func="serve")
 
+    # hm daemon
+    daemon_p = subparsers.add_parser("daemon", help="內建排程器（background scheduler）")
+    daemon_sub = daemon_p.add_subparsers(dest="daemon_action", required=True)
+    daemon_sub.add_parser("start", help="啟動背景 daemon")
+    daemon_sub.add_parser("stop", help="停止 daemon")
+    daemon_sub.add_parser("status", help="查詢 daemon 狀態")
+    daemon_sub.add_parser("log", help="顯示 daemon 日誌")
+    daemon_p.set_defaults(func="daemon")
+
     # hm maintain
     maintain_p = subparsers.add_parser("maintain", help="維護循環（recalc / dreamloop / reflect）")
     maintain_p.add_argument("action", choices=["recalc", "dreamloop", "reflect", "all"], help="維護動作（all = recalc + dreamloop + reflect）")
@@ -114,6 +123,10 @@ def main():
     if args.func == "serve":
         from hypermemory.mcp_server import main as mcp_main
         mcp_main(pool=args.pool)
+        return
+    elif args.func == "daemon":
+        from hypermemory.commands.daemon import run as daemon_run
+        daemon_run(args)
         return
     elif args.func == "list_cmd":
         from hypermemory.commands.list_cmd import run

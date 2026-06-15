@@ -119,7 +119,33 @@ WRAPPER
         echo "# HyperMemory Pool Index" > "$HOME/.hypermemory/pools/default/index.md"
     fi
 
-    # 7. PATH提示
+    # 7. Setup daemon (systemd user service)
+    if [ \"$OS\" = \"linux\" ]; then
+        if command -v systemctl &>/dev/null; then
+            info \"Setting up daemon service...\"
+            mkdir -p \"$HOME/.config/systemd/user\"
+            cat > \"$HOME/.config/systemd/user/hypermemory.service\" << SERVICE
+[Unit]
+Description=HyperMemory Daemon
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=${BIN_DIR}/hm daemon start
+ExecStop=${BIN_DIR}/hm daemon stop
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target
+SERVICE
+            systemctl --user daemon-reload 2>/dev/null || true
+            info \"Service file installed: ~/.config/systemd/user/hypermemory.service\"
+            info \"Enable: systemctl --user enable --now hypermemory\"
+        fi
+    fi
+
+    # 8. PATH提示
     case ":$PATH:" in
         *":$BIN_DIR:"*) ;;
         *) warn "Add $BIN_DIR to your PATH to use 'hm' directly"
