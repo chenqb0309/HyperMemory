@@ -1,8 +1,22 @@
 [project]
 name = "hypermemory"
 version = "1.0.0"
-description = "AI 記憶放大器 — CLI 工具"
+description = "AI 記憶放大器 — CLI 工具與 MCP server"
+readme = "README.md"
 requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "Jet Chen"},
+]
+
+dependencies = []
+
+[project.optional-dependencies]
+mcp = ["mcp>=1.0.0"]
+dev = ["pytest>=7.0"]
+
+[project.urls]
+Homepage = "https://github.com/chenqb0309/HyperMemory"
 
 [project.scripts]
 hm = "hypermemory.__main__:main"

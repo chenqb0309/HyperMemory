@@ -67,7 +67,7 @@ def update_index_entry(index_text, old_node, new_node, new_keywords=None):
     若 new_keywords 提供，同時擴增關鍵字。
     回傳更新後的文字。
     """
-    pattern = r'(《cluster:\s*\[(.*?)\]\s*→\s*\[\[)' + re.escape(old_node) + r'(\]\]\))'
+    pattern = r'(《cluster:\s*\[(.*?)\]》\s*→\s*\[\[)' + re.escape(old_node) + r'(\]\])'
     replacement = None
 
     for m in re.finditer(pattern, index_text):
