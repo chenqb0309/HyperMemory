@@ -47,6 +47,10 @@ def build_parser():
     imprint_p.add_argument("--force", action="store_true", help="覆蓋已存在的 node")
     imprint_p.set_defaults(func="imprint")
 
+    # hm serve
+    serve_p = subparsers.add_parser("serve", help="啟動 MCP server（stdio 協定）")
+    serve_p.set_defaults(func="serve")
+
     return parser
 
 
@@ -54,7 +58,6 @@ def main():
     parser = build_parser()
 
     # Allow --pool before or after subcommand
-    # First pass: extract --pool if it appears before subcommand
     pool_value = os.environ.get("HYPERMEMORY_POOL")
     filtered_argv = []
     skip_next = False
@@ -70,7 +73,6 @@ def main():
         else:
             filtered_argv.append(arg)
 
-    # Second pass: normal parse
     args = parser.parse_args(filtered_argv)
     args.pool = pool_value
 
@@ -78,11 +80,13 @@ def main():
     from hypermemory.core.pool import resolve_pool
     pool_path = resolve_pool(args.pool)
     ensure_pool(pool_path)
-    # Store resolved path for commands
     args.pool = str(pool_path)
 
     # Route to command handler
-    if args.func == "list_cmd":
+    if args.func == "serve":
+        from hypermemory.mcp_server import main as mcp_main
+        mcp_main(pool=args.pool)
+    elif args.func == "list_cmd":
         from hypermemory.commands.list_cmd import run
     elif args.func == "recall":
         from hypermemory.commands.recall import run
