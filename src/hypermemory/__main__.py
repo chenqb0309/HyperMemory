@@ -114,6 +114,7 @@ def main():
     if args.func == "serve":
         from hypermemory.mcp_server import main as mcp_main
         mcp_main(pool=args.pool)
+        return
     elif args.func == "list_cmd":
         from hypermemory.commands.list_cmd import run
     elif args.func == "recall":
