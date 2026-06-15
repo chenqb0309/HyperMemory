@@ -53,8 +53,18 @@ def build_parser():
 
     # hm maintain
     maintain_p = subparsers.add_parser("maintain", help="維護循環（recalc / dreamloop）")
-    maintain_p.add_argument("action", choices=["recalc", "dreamloop"], help="維護動作")
+    maintain_p.add_argument("action", choices=["recalc", "dreamloop", "all"], help="維護動作（all = recalc + dreamloop）")
     maintain_p.set_defaults(func="maintain")
+
+    # hm info
+    info_p = subparsers.add_parser("info", help="顯示記憶池健康狀態")
+    info_p.set_defaults(func="info")
+
+    # hm think
+    think_p = subparsers.add_parser("think", help="習慣性回想（輕量版 recall，適合回答前使用）")
+    think_p.add_argument("query", nargs="+", help="查詢關鍵詞")
+    think_p.add_argument("--dry-run", action="store_true", help="不更新 total_mentions")
+    think_p.set_defaults(func="think")
 
     return parser
 
@@ -101,6 +111,10 @@ def main():
         from hypermemory.commands.imprint import run
     elif args.func == "maintain":
         from hypermemory.commands.maintain import run
+    elif args.func == "info":
+        from hypermemory.commands.info import run
+    elif args.func == "think":
+        from hypermemory.commands.think import run
     else:
         parser.print_help()
         sys.exit(1)

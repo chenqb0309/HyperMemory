@@ -15,6 +15,12 @@ def run(args):
         _recalc(pool)
     elif args.action == "dreamloop":
         _dreamloop(pool)
+    elif args.action == "all":
+        print("=== Recalc ===")
+        _recalc(pool)
+        print()
+        print("=== DreamLoop ===")
+        _dreamloop(pool)
     else:
         print(f"Unknown action: {args.action}")
         sys.exit(1)
