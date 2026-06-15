@@ -51,6 +51,11 @@ def build_parser():
     serve_p = subparsers.add_parser("serve", help="啟動 MCP server（stdio 協定）")
     serve_p.set_defaults(func="serve")
 
+    # hm maintain
+    maintain_p = subparsers.add_parser("maintain", help="維護循環（recalc / dreamloop）")
+    maintain_p.add_argument("action", choices=["recalc", "dreamloop"], help="維護動作")
+    maintain_p.set_defaults(func="maintain")
+
     return parser
 
 
@@ -94,6 +99,8 @@ def main():
         from hypermemory.commands.inspect import run
     elif args.func == "imprint":
         from hypermemory.commands.imprint import run
+    elif args.func == "maintain":
+        from hypermemory.commands.maintain import run
     else:
         parser.print_help()
         sys.exit(1)

@@ -176,7 +176,6 @@ class HMTools:
             fm.get("timestamp"),
         )
 
-        # Check prenode and nextnodes file existence
         prenode = fm.get("prenode")
         nextnodes = fm.get("nextnodes", [])
         ref_by = fm.get("ref_by", [])
@@ -195,6 +194,91 @@ class HMTools:
             "prenode_exists": prenode and (self.pool / prenode).exists(),
             "nextnodes": nextnodes,
             "ref_by": ref_by,
+        }
+
+    def imprint(self, content, filename=None):
+        """從文字內容刻錄新 node（MCP 版本，無檔案路徑）"""
+        from hypermemory.commands.imprint import _strip_body_links, _generate_body_links, _extract_keywords, _sync_parent_links, _format_entry
+
+        fm = parse_frontmatter(content)
+
+        errors = []
+        if not fm.get("type"): errors.append("Missing: type")
+        if not fm.get("timestamp"): errors.append("Missing: timestamp")
+        if fm.get("node_type") is None: errors.append("Missing: node_type")
+        if fm.get("intensity") is None: errors.append("Missing: intensity")
+        if errors:
+            return {"success": False, "errors": errors}
+
+        if filename:
+            dest_name = filename
+        else:
+            import datetime
+            ts = datetime.datetime.now().strftime("%Y-%m-%d")
+            title = extract_title(content) or "untitled"
+            slug = title.lower().replace(" ", "-")[:30]
+            dest_name = f"{ts}-{slug}.md"
+
+        if not dest_name.endswith(".md"):
+            dest_name += ".md"
+
+        dest_path = self.pool / dest_name
+        if dest_path.exists():
+            return {"success": False, "error": f"Node already exists: {dest_name}"}
+
+        content = _strip_body_links(content)
+        content = _generate_body_links(content)
+
+        with open(dest_path, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        idx_path = self.pool / "index.md"
+        if idx_path.exists():
+            with open(idx_path, encoding="utf-8") as f:
+                index_content = f.read()
+            from hypermemory.core.index import parse_index, update_index_entry
+            entries = parse_index(index_content)
+        else:
+            index_content = "# HyperMemory Pool Index\n\n"
+            entries = []
+
+        prenode = fm.get("prenode")
+        new_keywords = _extract_keywords(fm, dest_name)
+
+        if prenode:
+            pre_entry = None
+            for kw_list, node_file in entries:
+                if node_file == prenode:
+                    pre_entry = (kw_list, node_file)
+                    break
+            if pre_entry:
+                old_node = pre_entry[1]
+                new_weight = calc_weight(fm.get("intensity", 1), fm.get("total_mentions", 1), fm.get("timestamp"))
+                old_path = self.pool / old_node
+                old_weight = 0
+                if old_path.exists():
+                    with open(old_path, encoding="utf-8") as f:
+                        old_content = f.read()
+                    old_fm = parse_frontmatter(old_content)
+                    old_weight = calc_weight(old_fm.get("intensity", 1), old_fm.get("total_mentions", 0), old_fm.get("timestamp"))
+                pointer = dest_name if new_weight > old_weight else old_node
+                index_content = update_index_entry(index_content, old_node, pointer, new_keywords)
+                _sync_parent_links(self.pool, prenode, dest_name)
+            else:
+                index_content += _format_entry(new_keywords, dest_name) + "\n"
+        else:
+            index_content += _format_entry(new_keywords, dest_name) + "\n"
+
+        with open(idx_path, "w", encoding="utf-8") as f:
+            f.write(index_content)
+
+        weight = calc_weight(fm.get("intensity", 1), fm.get("total_mentions", 1), fm.get("timestamp"))
+        return {
+            "success": True,
+            "node": dest_name,
+            "title": extract_title(content),
+            "type": fm.get("node_type"),
+            "weight": round(weight, 2),
         }
 
 
@@ -243,6 +327,23 @@ TOOLS = {
                 }
             },
             "required": ["node"],
+        },
+    },
+    "hm_imprint": {
+        "description": "將一段經驗儲存為新的記憶 node。需要提供含 frontmatter 的完整 markdown 內容。CLI 用法：hm imprint <file>",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "type": "string",
+                    "description": "含 frontmatter 的完整 markdown 內容。必須包含 type, timestamp, node_type, intensity, total_mentions 欄位。",
+                },
+                "filename": {
+                    "type": "string",
+                    "description": "Node 檔名（如 2026-06-15-experience.md）。預設自動產生。",
+                },
+            },
+            "required": ["content"],
         },
     },
 }
@@ -312,6 +413,12 @@ def handle_request(tools, request):
             elif tool_name == "hm_inspect":
                 node = arguments.get("node", "")
                 result = tools.inspect(node)
+                text = json.dumps(result, ensure_ascii=False, indent=2)
+
+            elif tool_name == "hm_imprint":
+                content = arguments.get("content", "")
+                filename = arguments.get("filename", None)
+                result = tools.imprint(content, filename)
                 text = json.dumps(result, ensure_ascii=False, indent=2)
 
             else:
