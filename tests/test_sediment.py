@@ -113,7 +113,7 @@ node_type: 1
 prenode: null
 nextnodes: []
 ref_by: []
-intensity: 2
+intensity: 1
 total_mentions: 0
 tags: [test, cold]
 dimensions:

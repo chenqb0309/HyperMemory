@@ -7,16 +7,16 @@ from hypermemory.core.weight import calc_weight, format_score
 
 
 def test_calc_weight_basic():
-    """基本權重計算：intensity × (1 + 0.1 × mentions) × decay"""
+    """基本權重計算：engagement × recency + solidification"""
     w = calc_weight(5, 1, None)
-    assert w == 5.5, f"Expected 5.5, got {w}"
+    assert w == 5.75, f"Expected 5.75, got {w}"
 
 
 def test_calc_weight_without_timestamp():
-    """無 timestamp 時回傳 intensity × (1 + 0.1 × mentions)"""
-    assert calc_weight(1, 0, None) == 1.0
-    assert calc_weight(10, 0, None) == 10.0
-    assert calc_weight(5, 10, None) == 5 * (1 + 0.1 * 10) == 10.0
+    """無 timestamp 時回傳 engagement + solidification"""
+    assert calc_weight(1, 0, None) == 1.05
+    assert calc_weight(10, 0, None) == 10.5
+    assert calc_weight(5, 10, None) == 5 * (1 + 0.1 * 10) + 5 * 0.05
 
 
 def test_format_score():

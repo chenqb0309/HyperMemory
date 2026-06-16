@@ -1,9 +1,10 @@
 """HyperMemory 核心 — 權重計算 v2
 
-公式：weight = engagement × recency
+公式：weight = engagement × recency + solidification
 
 engagement = intensity × (1 + 0.1 × total_mentions) + ref_by_count × 0.3 + max(0, chain_length - 1) × 0.2
 recency   = node_type-aware 半衰期指數模型
+solidification = intensity × 0.05（永不衰減的固化基底，確保高 intensity node 永遠有基本 recall 機會）
 """
 
 import math
@@ -70,19 +71,22 @@ def calc_weight(
             now = datetime.now(timezone.utc)
             days = max(0, (now - ts).days)
         except (ValueError, TypeError):
-            return engagement  # recency = 1.0
+            days = None
     else:
-        return engagement  # recency = 1.0
+        days = None
 
-    half_life = HALF_LIFE_MAP.get(node_type, DEFAULT_HALF_LIFE)
-
-    if days < half_life:
+    if days is not None:
+        half_life = HALF_LIFE_MAP.get(node_type, DEFAULT_HALF_LIFE)
+        if days < half_life:
+            recency = 1.0
+        else:
+            excess = days - half_life
+            recency = max(0.05, math.exp(-excess / half_life))
+    else:
         recency = 1.0
-    else:
-        excess = days - half_life
-        recency = max(0.05, math.exp(-excess / half_life))
 
-    return engagement * recency
+    # Solidification bonus: high-intensity nodes never fully decay
+    return engagement * recency + float(intensity) * 0.05
 
 
 def format_score(score):
