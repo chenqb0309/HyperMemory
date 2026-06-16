@@ -62,10 +62,16 @@ class HMTools:
                 "weight": round(weight, 2),
                 "title": title,
             })
-        return results
+        from hypermemory.core.muscle_memory import pending_skill_count
+        return {
+            "clusters": results,
+            "pending_skills": pending_skill_count(self.pool),
+        }
 
     def recall(self, keywords, limit=5):
         """回憶與關鍵字匹配的經驗，按 recency 優先排序（最新在前）。"""
+        from hypermemory.core.muscle_memory import pending_skill_count
+
         entries = self._read_index()
         kw_list = [k.strip() for k in keywords.split(",") if k.strip()]
         if not kw_list:
@@ -165,10 +171,13 @@ class HMTools:
             "query": keywords,
             "total": len(nodes_with_ts),
             "results": nodes_with_ts[:limit],
+            "pending_skills": pending_skill_count(self.pool),
         }
 
     def think(self, query):
         """習慣性回想：回傳最新 matching node（recency-first）。"""
+        from hypermemory.core.muscle_memory import pending_skill_count
+
         entries = self._read_index()
         kw_list = [k.strip() for k in query.replace(",", " ").split() if k.strip()]
         if not kw_list:
@@ -278,6 +287,7 @@ class HMTools:
             "found": True,
             "result": best,
             "total_candidates": len(candidates),
+            "pending_skills": pending_skill_count(self.pool),
         }
 
     def inspect(self, node_name):
@@ -558,3 +568,13 @@ class HMTools:
             return {"success": True, "action": action}
         except Exception as e:
             return {"success": False, "action": action, "error": str(e)}
+
+    def check_skill_candidates(self):
+        """列出所有 skill_ready 的經驗 node"""
+        from hypermemory.core.muscle_memory import check_candidates
+        return check_candidates(self.pool)
+
+    def register_skill(self, skill_json):
+        """將一個經驗 node 轉換註冊為結構化 skill"""
+        from hypermemory.core.muscle_memory import register_skill
+        return register_skill(self.pool, skill_json)

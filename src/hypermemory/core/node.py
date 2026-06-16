@@ -22,6 +22,20 @@ def parse_frontmatter(content):
         if m:
             fm[field] = m.group(1).strip()
 
+    # Boolean scalar fields
+    for field in ["skill_ready", "has_skill"]:
+        m = re.search(rf'^{field}:\s*(.+)', fm_text, re.MULTILINE)
+        if m:
+            val = m.group(1).strip().lower()
+            fm[field] = val == "true"
+
+    # String scalar fields (with null support)
+    for field in ["skill_ready_at", "skill_path"]:
+        m = re.search(rf'^{field}:\s*(.+)', fm_text, re.MULTILINE)
+        if m:
+            val = m.group(1).strip()
+            fm[field] = None if val == "null" else val
+
     # Convert numeric fields
     if "node_type" in fm:
         fm["node_type"] = int(fm["node_type"])

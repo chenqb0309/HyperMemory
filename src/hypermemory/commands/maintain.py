@@ -21,6 +21,8 @@ def run(args):
         _reflect(pool, args.days)
     elif args.action == "sediment":
         _sediment(pool)
+    elif args.action == "muscle":
+        _muscle(pool)
     elif args.action == "all":
         print("=== Recalc ===")
         _recalc(pool)
@@ -30,6 +32,9 @@ def run(args):
         print()
         print("=== Sediment ===")
         _sediment(pool)
+        print()
+        print("=== Muscle ===")
+        _muscle(pool)
         print()
         print("=== Reflection ===")
         _reflect(pool, args.days)
@@ -317,3 +322,19 @@ def _sediment(pool):
             f"Sediment: {result['archived_count']} archived, "
             f"{result['candidates']} candidate(s) skipped"
         )
+
+
+def _muscle(pool):
+    from hypermemory.core.muscle_memory import scan_and_mark_candidates, expire_stale_marks
+    from hypermemory.core.print import safe_print
+
+    expired = expire_stale_marks(pool)
+    result = scan_and_mark_candidates(pool)
+
+    if expired:
+        for n in expired:
+            safe_print(f"  [x] {n} expired")
+    if result["marked"]:
+        for n in result["marked"]:
+            safe_print(f"  [✓] {n} skill_ready")
+    print(f"Muscle: {len(result['marked'])} marked, {result['skipped']} skipped, {len(expired)} expired")

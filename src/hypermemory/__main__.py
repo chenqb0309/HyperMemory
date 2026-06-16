@@ -65,7 +65,7 @@ def build_parser():
 
     # hm maintain
     maintain_p = subparsers.add_parser("maintain", help="維護循環（recalc / dreamloop / reflect）")
-    maintain_p.add_argument("action", choices=["recalc", "dreamloop", "reflect", "sediment", "all"], help="維護動作（all = recalc + dreamloop + sediment + reflect）")
+    maintain_p.add_argument("action", choices=["recalc", "dreamloop", "reflect", "sediment", "muscle", "all"], help="維護動作（all = recalc + dreamloop + sediment + muscle + reflect）")
     maintain_p.add_argument("--days", type=int, default=3, help="Reflection 掃描天數（預設 3）")
     maintain_p.set_defaults(func="maintain")
 

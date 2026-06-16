@@ -155,6 +155,26 @@ TOOLS = {
             "required": ["node"],
         },
     },
+    "hm_check_skill_candidates": {
+        "description": "列出所有 skill_ready 的經驗 node。當 weight + mentions + ref_by 達到門檻後，經驗可轉換為可重複使用的 skill。回傳每個 candidate 的 metadata 與 body 摘要。",
+        "input_schema": {
+            "type": "object",
+            "properties": {},
+        },
+    },
+    "hm_register_skill": {
+        "description": "將一個經驗 node 轉換註冊為結構化 skill。需要提供 skill JSON，包含 skill_name、trigger、steps。HM 會驗證格式並儲存到技能庫。",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "skill_json": {
+                    "type": "object",
+                    "description": "結構化 skill JSON，包含 skill_name, trigger, steps, source_node",
+                }
+            },
+            "required": ["skill_json"],
+        },
+    },
 }
 
 
@@ -260,6 +280,15 @@ def handle_request(tools, request):
                 min_weight = arguments.get("min_weight", 0.0)
                 direction = arguments.get("direction", "forward")
                 result = tools.explore(node, depth, min_weight, direction)
+                text = json.dumps(result, ensure_ascii=False, indent=2)
+
+            elif tool_name == "hm_check_skill_candidates":
+                result = tools.check_skill_candidates()
+                text = json.dumps(result, ensure_ascii=False, indent=2)
+
+            elif tool_name == "hm_register_skill":
+                skill_json = arguments.get("skill_json", {})
+                result = tools.register_skill(skill_json)
                 text = json.dumps(result, ensure_ascii=False, indent=2)
 
             else:
