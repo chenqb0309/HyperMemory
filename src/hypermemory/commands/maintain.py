@@ -19,12 +19,17 @@ def run(args):
         _dreamloop(pool)
     elif args.action == "reflect":
         _reflect(pool, args.days)
+    elif args.action == "sediment":
+        _sediment(pool)
     elif args.action == "all":
         print("=== Recalc ===")
         _recalc(pool)
         print()
         print("=== DreamLoop ===")
         _dreamloop(pool)
+        print()
+        print("=== Sediment ===")
+        _sediment(pool)
         print()
         print("=== Reflection ===")
         _reflect(pool, args.days)
@@ -296,3 +301,19 @@ tags: [{tags_str}]
         print(f"  + {filename} ({intensity}/10) — {title[:50]}")
 
     safe_print(f"\nResult: {imprinted} imprinted, {skipped} skipped (already covered)")
+
+
+def _sediment(pool):
+    from hypermemory.core.sediment import sediment_pool
+    from hypermemory.core.print import safe_print
+
+    result = sediment_pool(pool)
+    if result["archived_count"] > 0:
+        for node in result["archived"]:
+            safe_print(f"  [↓] {node} archived")
+        print(f"\nSediment: {result['archived_count']} node(s) archived")
+    else:
+        print(
+            f"Sediment: {result['archived_count']} archived, "
+            f"{result['candidates']} candidate(s) skipped"
+        )
