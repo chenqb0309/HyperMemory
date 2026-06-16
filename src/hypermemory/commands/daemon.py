@@ -155,18 +155,26 @@ def daemon_loop(pool, schedule=None):
                 continue
 
             next_time, next_action = tasks[0]
-            delay = (next_time - now).total_seconds()
 
-            if delay <= 0:
-                run_maintain(pool, next_action)
-            elif delay > 3600:
-                time.sleep(60)  # Check sentinel every 60s
-            else:
-                # Sleep in short intervals for responsive shutdown
-                for _ in range(int(delay // 5) + 1):
-                    if shutdown[0] or stop_sentinel.exists():
-                        break
-                    time.sleep(5)
+            # Wait until it's precisely time to execute next_action.
+            # next_time is computed ONCE per cycle — we never recompute it
+            # mid-wait, which avoids the race where a recomputed target
+            # is always "past" due to <= comparison in next_run().
+            while not shutdown[0] and not stop_sentinel.exists():
+                now = datetime.now()
+                delay = (next_time - now).total_seconds()
+
+                if delay <= 0:
+                    break  # time to execute
+
+                # Cap at 60s for responsive shutdown
+                time.sleep(min(delay, 60.0))
+
+            if shutdown[0] or stop_sentinel.exists():
+                break
+
+            run_maintain(pool, next_action)
+            # loop re-enters -> recompute next schedule naturally
         except KeyboardInterrupt:
             shutdown[0] = True
             break
