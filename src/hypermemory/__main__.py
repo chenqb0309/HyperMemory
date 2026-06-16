@@ -79,6 +79,10 @@ def build_parser():
     think_p.add_argument("--dry-run", action="store_true", help="不更新 total_mentions")
     think_p.set_defaults(func="think")
 
+    # hm doctor
+    doctor_p = subparsers.add_parser("doctor", help="執行系統自我診斷（HM 版本、Pool 完整性、daemon 狀態）")
+    doctor_p.set_defaults(func="doctor")
+
     # hm log
     log_p = subparsers.add_parser("log", help="Session log 操作")
     log_sub = log_p.add_subparsers(dest="log_action", required=True)
@@ -145,6 +149,8 @@ def main():
         from hypermemory.commands.info import run
     elif args.func == "think":
         from hypermemory.commands.think import run
+    elif args.func == "doctor":
+        from hypermemory.commands.doctor import run
     elif args.func == "log":
         from hypermemory.commands.log_cmd import run
     else:

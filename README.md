@@ -78,6 +78,7 @@ Node 寫作指引見 `spec/imprint-guide.md`。
 |------|------|
 | `hm list` | 列出所有 cluster、當前 node、權重、pending_skills |
 | `hm info` | 記憶池健康狀態：node/cluster/type/weight 統計 |
+| `hm doctor` | 系統自我診斷（版本、Pool 完整性、daemon 狀態） |
 | `hm daemon status` | 查詢 daemon 是否存活、下次排程 |
 | `hm daemon log` | 顯示 daemon 日誌 |
 
