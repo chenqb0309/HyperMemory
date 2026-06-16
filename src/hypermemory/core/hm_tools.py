@@ -35,6 +35,11 @@ class HMTools:
         with open(idx, encoding="utf-8") as f:
             return parse_index(f.read())
 
+    def _chain_length(self, node_name, fm, max_depth=5):
+        """計算 node 在 chain 中的長度（含自身）。委派至 pool.resolve_chain_length。"""
+        from hypermemory.core.pool import resolve_chain_length
+        return resolve_chain_length(self.pool, node_name, fm, max_depth)
+
     def list_clusters(self):
         entries = self._read_index()
         results = []
@@ -54,6 +59,7 @@ class HMTools:
                     fm.get("timestamp"),
                     node_type=fm.get("node_type", "經驗"),
                     ref_by_count=len(fm.get("ref_by", []) or []),
+                    chain_length=self._chain_length(node_file, fm),
                 )
             results.append({
                 "cluster": ", ".join(keywords),
@@ -101,6 +107,7 @@ class HMTools:
                 fm.get("timestamp"),
                 node_type=fm.get("node_type", "經驗"),
                 ref_by_count=len(fm.get("ref_by", []) or []),
+                chain_length=self._chain_length(node_file, fm),
             )
             node_dims = parse_dimensions(fm)
             stats = get_confirmation_stats(self.pool, node_file)
@@ -206,6 +213,7 @@ class HMTools:
                 fm.get("timestamp"),
                 node_type=fm.get("node_type", "經驗"),
                 ref_by_count=len(fm.get("ref_by", []) or []),
+                chain_length=self._chain_length(node_file, fm),
             )
             node_dims = parse_dimensions(fm)
             stats = get_confirmation_stats(self.pool, node_file)
@@ -308,6 +316,7 @@ class HMTools:
             fm.get("timestamp"),
             node_type=fm.get("node_type", "經驗"),
             ref_by_count=len(fm.get("ref_by", []) or []),
+            chain_length=self._chain_length(node_name, fm),
         )
 
         prenode = fm.get("prenode")

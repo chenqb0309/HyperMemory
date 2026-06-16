@@ -94,11 +94,13 @@ def _recalc(pool):
             with open(np, encoding="utf-8") as f:
                 content = f.read()
             fm = parse_frontmatter(content)
+            from hypermemory.core.pool import resolve_chain_length
             weight = calc_weight(
                 fm.get("intensity", 1),
                 fm.get("total_mentions", 0),
                 fm.get("timestamp"),
                 node_type=fm.get("node_type", "經驗"),
+                chain_length=resolve_chain_length(pool, node_name, fm),
             )
             if weight > best_weight:
                 best_weight = weight

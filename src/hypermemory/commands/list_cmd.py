@@ -40,11 +40,13 @@ def run(args):
                 content = f.read()
             fm = parse_frontmatter(content)
             title = extract_title(content)
+            from hypermemory.core.pool import resolve_chain_length
             score = calc_weight(
                 fm.get("intensity", 1),
                 fm.get("total_mentions", 0),
                 fm.get("timestamp"),
                 node_type=fm.get("node_type", "經驗"),
+                chain_length=resolve_chain_length(pool, node_name, fm),
             )
             score_str = format_score(score)
             title_str = title

@@ -37,11 +37,13 @@ def run(args):
             content = f.read()
         fm = parse_frontmatter(content)
         type_counts[fm.get("node_type", "?")] = type_counts.get(fm.get("node_type", "?"), 0) + 1
+        from hypermemory.core.pool import resolve_chain_length
         w = calc_weight(
             fm.get("intensity", 1),
             fm.get("total_mentions", 0),
             fm.get("timestamp"),
             node_type=fm.get("node_type", "經驗"),
+            chain_length=resolve_chain_length(pool, node_name, fm),
         )
         weights.append(w)
 
