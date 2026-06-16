@@ -99,7 +99,11 @@ Type 2/3 寫入時，在 prenode 的 frontmatter 中加上此 node 的 nextnodes
 ### Step 10：權重計算
 
 ```
-node_score = intensity × (1 + 0.1 × total_mentions) × decay(timestamp)
+weight = engagement × recency + solidification
+
+engagement = intensity × (1 + 0.1 × total_mentions) + ref_by_boost + chain_boost
+recency = node_type-aware 半衰期模型（經驗30d / 骨骼90d / 自動刻錄7d）
+solidification = intensity × 0.05（永不衰減基底）
 ```
 
 ## 常見失誤

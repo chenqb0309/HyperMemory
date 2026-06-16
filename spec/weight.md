@@ -3,13 +3,13 @@
 ## 公式
 
 ```
-weight = engagement × recency
+weight = engagement × recency + solidification
 ```
-
 | 因子 | 說明 |
 |------|------|
 | **engagement** | 參與度：intensity × (1 + 0.1 × mentions) + ref_by_boost + chain_boost |
 | **recency** | 時效性：node_type-aware 半衰期模型，最近活躍則維持，超過半衰期開始指數衰減 |
+| **solidification** | 固化基底：intensity × 0.05，永不衰減，確保高強度經驗永遠有基本 recall 機會 |
 
 ## Engagement 計算
 

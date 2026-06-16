@@ -4,9 +4,9 @@
 
 ```yaml
 ---
-type: episodic_memory
+type: 2
 timestamp: 2026-06-11T14:30:00+08:00
-node_type: 1                 # 1=new, 2=evolution, 3=cross-chain
+node_type: 2                  # 1=自動刻錄, 2=經驗/決策, 3=骨骼
 prenode: null                 # scalar：[[parent-node.md]]
 nextnodes: null               # list：
                               #   - [[child-a.md]]
@@ -17,6 +17,13 @@ ref_by: null                  # list：
 intensity: 7                  # 1-10
 total_mentions: 1             # 初始為 1（寫入即算一次）
 tags: [hypermemory, design]   # 選擇性，純 metadata
+dimensions:                   # 選擇性，5M1E 環境維度
+  機: WSL
+  料: Python 3.12
+skill_ready: false            # 由 Muscle Memory Loop 自動設定
+skill_ready_at: null          # ISO timestamp
+has_skill: false              # 由 hm_register_skill 自動設定
+skill_path: null              # skills/<node>.skill.json
 ---
 ```
 
