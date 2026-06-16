@@ -131,7 +131,7 @@ TOOLS = {
         },
     },
     "hm_explore": {
-        "description": "從一個記憶 node 出發，沿鏈向前（nextnodes）或向後（prenode）探索上下游 node。depth 控制層數，min_weight 過濾低權重 node。",
+        "description": "從一個記憶 node 出發，沿鏈向前（nextnodes）或向後（prenode）探索上下游 node。depth 控制層數，min_weight 過濾低權重 node。可傳入 context_dims 做 5M1E 維度過濾。",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -150,6 +150,10 @@ TOOLS = {
                 "direction": {
                     "type": "string",
                     "description": "探索方向：forward（下游）、backward（上游）、both（雙向）",
+                },
+                "context_dims": {
+                    "type": "object",
+                    "description": '5M1E 維度過濾條件，如 {"機": "WSL", "料": "Python"}。只回傳 dimensions 相容的 node。',
                 },
             },
             "required": ["node"],
@@ -279,7 +283,8 @@ def handle_request(tools, request):
                 depth = arguments.get("depth", 3)
                 min_weight = arguments.get("min_weight", 0.0)
                 direction = arguments.get("direction", "forward")
-                result = tools.explore(node, depth, min_weight, direction)
+                context_dims = arguments.get("context_dims", None)
+                result = tools.explore(node, depth, min_weight, direction, context_dims)
                 text = json.dumps(result, ensure_ascii=False, indent=2)
 
             elif tool_name == "hm_check_skill_candidates":

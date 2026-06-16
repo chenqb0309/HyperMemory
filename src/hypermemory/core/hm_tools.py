@@ -598,12 +598,13 @@ class HMTools:
             "orphan_clusters": orphan_count,
         }
 
-    def explore(self, node_name, depth=3, min_weight=0.0, direction="forward"):
+    def explore(self, node_name, depth=3, min_weight=0.0, direction="forward", context_dims=None):
         """從一個 node 出發遍歷鏈。"""
         from hypermemory.core.explore import explore_chain
         result = explore_chain(
             self.pool, node_name,
             direction=direction, depth=depth, min_weight=min_weight,
+            context_dims=context_dims,
         )
         return result
 

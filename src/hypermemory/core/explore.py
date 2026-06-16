@@ -9,9 +9,10 @@ from pathlib import Path
 from hypermemory.core.node import parse_frontmatter, extract_title
 from hypermemory.core.weight import calc_weight
 from hypermemory.core.pool import node_path
+from hypermemory.core.dimensions import parse_dimensions, is_compatible
 
 
-def explore_chain(pool, start_node, direction="forward", depth=3, min_weight=0.0):
+def explore_chain(pool, start_node, direction="forward", depth=3, min_weight=0.0, context_dims=None):
     """從 start_node 出發遍歷鏈。
 
     Parameters
@@ -26,6 +27,9 @@ def explore_chain(pool, start_node, direction="forward", depth=3, min_weight=0.0
         最大遍歷層數（1 = 僅 immediate 鄰居）
     min_weight : float
         最低權重過濾（weight < min_weight 的 node 不回傳）
+    context_dims : dict, optional
+        5M1E 維度過濾。提供時只回傳 dimensions 相容的 node。
+        None 或 {} = 全部通過（既有行為）。
 
     Returns
     -------
@@ -66,14 +70,14 @@ def explore_chain(pool, start_node, direction="forward", depth=3, min_weight=0.0
     }
 
     if direction == "forward":
-        result["chain"] = _traverse_forward(pool, start_node, depth, min_weight)
+        result["chain"] = _traverse_forward(pool, start_node, depth, min_weight, context_dims)
 
     elif direction == "backward":
-        result["chain"] = _traverse_backward(pool, start_node, depth, min_weight)
+        result["chain"] = _traverse_backward(pool, start_node, depth, min_weight, context_dims)
 
     elif direction == "both":
-        result["prenodes"] = _traverse_backward(pool, start_node, depth, min_weight)
-        result["nextnodes"] = _traverse_forward(pool, start_node, depth, min_weight)
+        result["prenodes"] = _traverse_backward(pool, start_node, depth, min_weight, context_dims)
+        result["nextnodes"] = _traverse_forward(pool, start_node, depth, min_weight, context_dims)
 
     return result
 
@@ -99,7 +103,7 @@ def _read_node_metadata(pool, node_name):
 # ─── 向前遍歷（沿 nextnodes）─────────────────────────────────
 
 
-def _traverse_forward(pool, start_node, depth, min_weight):
+def _traverse_forward(pool, start_node, depth, min_weight, context_dims=None):
     """BFS 遍歷 nextnodes 鏈"""
     chain = []
     visited = {start_node}
@@ -129,7 +133,13 @@ def _traverse_forward(pool, start_node, depth, min_weight):
             except FileNotFoundError:
                 continue
 
-            if next_weight >= min_weight:
+            # 5M1E dimension filter — skip adding to chain but still traverse
+            passes_dims = True
+            if context_dims is not None:
+                node_dims = parse_dimensions(next_fm)
+                passes_dims, _ = is_compatible(node_dims, context_dims)
+
+            if passes_dims and next_weight >= min_weight:
                 chain.append({
                     "node": next_node,
                     "weight": round(next_weight, 2),
@@ -146,7 +156,7 @@ def _traverse_forward(pool, start_node, depth, min_weight):
 # ─── 向後遍歷（沿 prenode）─────────────────────────────────
 
 
-def _traverse_backward(pool, start_node, depth, min_weight):
+def _traverse_backward(pool, start_node, depth, min_weight, context_dims=None):
     """BFS 遍歷 prenode 鏈"""
     chain = []
     visited = {start_node}
@@ -176,7 +186,13 @@ def _traverse_backward(pool, start_node, depth, min_weight):
         except FileNotFoundError:
             continue
 
-        if pre_weight >= min_weight:
+        # 5M1E dimension filter — skip adding to chain but still traverse
+        passes_dims = True
+        if context_dims is not None:
+            node_dims = parse_dimensions(pre_fm)
+            passes_dims, _ = is_compatible(node_dims, context_dims)
+
+        if passes_dims and pre_weight >= min_weight:
             chain.append({
                 "node": pre_node,
                 "weight": round(pre_weight, 2),
