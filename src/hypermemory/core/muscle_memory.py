@@ -13,33 +13,45 @@ from pathlib import Path
 from hypermemory.core.node import parse_frontmatter, extract_title
 from hypermemory.core.weight import calc_weight
 from hypermemory.core.pool import list_nodes
+from hypermemory.core.maturation import get_confirmation_stats, calc_maturation
+from hypermemory.core.dimensions import parse_dimensions
 
 
 # ─── 常數 ───────────────────────────────────────────────────
 
 SKILL_DIR = "skills"                       # skills/ 子目錄
 SKILL_READY_EXPIRE_DAYS = 30               # 未轉換過期天數
-MIN_SKILL_WEIGHT = 10.0                    # 最低權重門檻
-MIN_SKILL_MENTIONS = 5                     # 最低 mentions 門檻
-MIN_SKILL_REF_BY = 1                       # 最低被引用次數
+MIN_SKILL_WEIGHT = 10.0                    # 最低權重門檻（保留向下相容）
+MIN_SKILL_MENTIONS = 5                     # 輔助門檻（最低 recall 次數）
+MIN_SKILL_REF_BY = 1                       # 輔助門檻（最低引用數）
+MIN_SKILL_MATURATION = 8.0                 # 主要門檻：最低 maturation score
+MIN_TIME_MATURED = 0.8                     # 最低 time_matured 因子
 
 
 # ─── 條件偵測 ───────────────────────────────────────────────
 
 
-def is_skill_ready(fm: dict, weight: float) -> bool:
+def is_skill_ready(fm: dict, weight: float, maturation_score: float | None = None) -> bool:
     """判斷 node 是否符合 skill_ready 條件（AND）：
 
-    - weight >= MIN_SKILL_WEIGHT
-    - total_mentions >= MIN_SKILL_MENTIONS
-    - ref_by 列表長度 >= MIN_SKILL_REF_BY
     - 尚未有 skill（has_skill != True）
     - 不是自動刻錄（node_type != 1）
+    - total_mentions >= MIN_SKILL_MENTIONS（輔助門檻）
+    - ref_by 列表長度 >= MIN_SKILL_REF_BY（輔助門檻）
+    - **主要門檻**：
+        - 若 maturation_score 有提供：maturation_score >= MIN_SKILL_MATURATION
+        - 若 maturation_score 未提供（None）：weight >= 15.0（向下相容）
     """
-    if weight < MIN_SKILL_WEIGHT:
+    if fm.get("has_skill") is True:
         return False
 
-    mentions = fm.get("total_mentions", 0) or 0
+    node_type = fm.get("node_type")
+    if node_type == 1:
+        return False
+
+    mentions = fm.get("total_mentions", 0)
+    if isinstance(mentions, str):
+        mentions = int(mentions) if mentions.isdigit() else 0
     if mentions < MIN_SKILL_MENTIONS:
         return False
 
@@ -47,12 +59,14 @@ def is_skill_ready(fm: dict, weight: float) -> bool:
     if len(ref_by) < MIN_SKILL_REF_BY:
         return False
 
-    if fm.get("has_skill", False) is True:
-        return False
-
-    node_type = fm.get("node_type")
-    if node_type == 1:
-        return False
+    if maturation_score is not None:
+        # 主要門檻：maturation-based
+        if maturation_score < MIN_SKILL_MATURATION:
+            return False
+    else:
+        # Fallback：weight-based（向下相容）
+        if weight < 15.0:
+            return False
 
     return True
 
@@ -438,7 +452,19 @@ def scan_and_mark_candidates(pool: Path) -> dict:
             ref_by_count=len(fm.get("ref_by", []) or []),
         )
 
-        if is_skill_ready(fm, weight):
+        # 計算 maturation score（主要門檻）
+        stats = get_confirmation_stats(pool, node_name)
+        node_dims = parse_dimensions(fm)
+        mat = calc_maturation(
+            fm.get("intensity", 1),
+            stats["positive"],
+            stats["negative"],
+            fm.get("timestamp"),
+            node_dims=node_dims,
+        )
+        maturation_score = mat["score"]
+
+        if is_skill_ready(fm, weight, maturation_score=maturation_score):
             mark_skill_ready(pool, node_name)
             marked.append(node_name)
         else:

@@ -26,40 +26,54 @@ from hypermemory.core.muscle_memory import (
     MIN_SKILL_WEIGHT,
     MIN_SKILL_MENTIONS,
     MIN_SKILL_REF_BY,
+    MIN_SKILL_MATURATION,
 )
 
 
 # ─── 條件偵測（純函數） ───
 
 
-def test_skill_ready_high_weight_high_mentions():
-    """weight≥門檻 + mentions≥門檻 + ref_by≥門檻 → skill_ready。"""
+def test_skill_ready_high_maturation():
+    """maturation ≥ 門檻 + 輔助門檻皆滿足 → skill_ready。"""
     fm = {"total_mentions": MIN_SKILL_MENTIONS, "ref_by": ["a.md", "b.md"]}
-    assert is_skill_ready(fm, MIN_SKILL_WEIGHT + 1.0)
+    assert is_skill_ready(fm, MIN_SKILL_WEIGHT + 1.0, maturation_score=MIN_SKILL_MATURATION)
 
 
-def test_skill_ready_low_weight():
-    """weight < 門檻 → 不 ready。"""
+def test_skill_ready_low_maturation():
+    """maturation < 門檻 → 不 ready。"""
     fm = {"total_mentions": MIN_SKILL_MENTIONS, "ref_by": ["a.md"]}
-    assert not is_skill_ready(fm, MIN_SKILL_WEIGHT - 1.0)
+    assert not is_skill_ready(fm, MIN_SKILL_WEIGHT + 1.0, maturation_score=MIN_SKILL_MATURATION - 0.1)
+
+
+def test_skill_ready_low_weight_high_maturation():
+    """weight 低但有 maturation ≥ 門檻 → ready（maturation 為主要門檻）。"""
+    fm = {"total_mentions": MIN_SKILL_MENTIONS, "ref_by": ["a.md", "b.md"]}
+    assert is_skill_ready(fm, 1.0, maturation_score=MIN_SKILL_MATURATION)
+
+
+def test_skill_ready_no_maturation_fallback():
+    """無 maturation_score → 向下相容使用 weight-based 門檻（15.0）。"""
+    fm = {"total_mentions": MIN_SKILL_MENTIONS, "ref_by": ["a.md", "b.md"]}
+    assert not is_skill_ready(fm, 1.0)       # weight 太低 → False
+    assert is_skill_ready(fm, 15.0)           # weight >= 15.0 → True
 
 
 def test_skill_ready_low_mentions():
     """mentions < 門檻 → 不 ready。"""
     fm = {"total_mentions": 0, "ref_by": ["a.md", "b.md"]}
-    assert not is_skill_ready(fm, MIN_SKILL_WEIGHT + 1.0)
+    assert not is_skill_ready(fm, MIN_SKILL_WEIGHT + 1.0, maturation_score=MIN_SKILL_MATURATION)
 
 
 def test_skill_ready_low_ref_by():
     """ref_by < 門檻 → 不 ready。"""
     fm = {"total_mentions": MIN_SKILL_MENTIONS, "ref_by": []}
-    assert not is_skill_ready(fm, MIN_SKILL_WEIGHT + 1.0)
+    assert not is_skill_ready(fm, MIN_SKILL_WEIGHT + 1.0, maturation_score=MIN_SKILL_MATURATION)
 
 
 def test_skill_ready_no_ref_by_field():
     """ref_by 欄位不存在（None）→ 視為 0。"""
     fm = {"total_mentions": MIN_SKILL_MENTIONS}
-    assert not is_skill_ready(fm, MIN_SKILL_WEIGHT + 1.0)
+    assert not is_skill_ready(fm, MIN_SKILL_WEIGHT + 1.0, maturation_score=MIN_SKILL_MATURATION)
 
 
 def test_skill_ready_already_converted():
@@ -69,7 +83,7 @@ def test_skill_ready_already_converted():
         "ref_by": ["a.md", "b.md"],
         "has_skill": True,
     }
-    assert not is_skill_ready(fm, MIN_SKILL_WEIGHT + 1.0)
+    assert not is_skill_ready(fm, MIN_SKILL_WEIGHT + 1.0, maturation_score=MIN_SKILL_MATURATION)
 
 
 def test_skill_ready_auto_imprint_skipped():
@@ -79,7 +93,7 @@ def test_skill_ready_auto_imprint_skipped():
         "ref_by": ["a.md", "b.md"],
         "node_type": 1,  # 自動刻錄 type=1
     }
-    assert not is_skill_ready(fm, MIN_SKILL_WEIGHT + 1.0)
+    assert not is_skill_ready(fm, MIN_SKILL_WEIGHT + 1.0, maturation_score=MIN_SKILL_MATURATION)
 
 
 # ─── 標記（需要 temp pool） ───
