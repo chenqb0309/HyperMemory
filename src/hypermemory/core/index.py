@@ -1,4 +1,18 @@
-"""HyperMemory 核心 — Index 解析與更新"""
+"""HyperMemory 核心 — Index 解析與更新
+
+職責：**index.md 檔案格式處理器**
+角色：讀取、寫入、更新 index.md 這個純文字檔案。
+不負責關鍵詞匹配演算法（那是 cluster.py 的事）。
+
+與 cluster.py 的關係：
+   index.py 管「怎麼讀寫 index.md」→ 產出 entries
+   cluster.py 管「怎麼在 entries 裡搜尋」→ 算出分數
+
+match_cluster vs cluster.find_best_cluster：
+   match_cluster 用於 imprint 重複檢查（coverage 權重 0.3）
+   find_best_cluster 用於 recall 搜尋（coverage 權重 0.2）
+   兩者數值不同是因為用途不同，不是 bug。
+"""
 
 import re
 

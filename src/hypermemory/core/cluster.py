@@ -1,4 +1,18 @@
-"""HyperMemory 核心 — Cluster 匹配與關鍵字操作"""
+"""HyperMemory 核心 — Cluster 匹配與關鍵字操作
+
+職責：**搜尋匹配引擎**
+角色：從 parse 好的 index entries 中做關鍵詞比對、評分、排名。
+不負責讀寫 index.md 檔案（那是 index.py 的事）。
+
+與 index.py 的關係：
+   index.py 管「怎麼讀寫 index.md」→ 產出 entries
+   cluster.py 管「怎麼在 entries 裡搜尋」→ 算出分數
+
+注意：find_all_clusters 的 coverage 權重（0.2）與 index.py 的 match_cluster
+coverage 權重（0.3）數值不同，因為兩者是不同用途：
+  - cluster.py 的 0.2 → 檢索時對 cluster 覆蓋率的加分（搜尋）
+  - index.py 的 0.3   → 寫入前對現有 cluster 的比對權重（重複檢查）
+"""
 
 
 def match_keywords(query, cluster_keywords):
