@@ -130,6 +130,31 @@ TOOLS = {
             "required": ["source", "result"],
         },
     },
+    "hm_explore": {
+        "description": "從一個記憶 node 出發，沿鏈向前（nextnodes）或向後（prenode）探索上下游 node。depth 控制層數，min_weight 過濾低權重 node。",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "node": {
+                    "type": "string",
+                    "description": "起始 node 檔名，如 2026-06-11-buildout.md",
+                },
+                "depth": {
+                    "type": "integer",
+                    "description": "最大探索層數（預設 3）",
+                },
+                "min_weight": {
+                    "type": "number",
+                    "description": "最低權重，低於此值的 node 不回傳（預設 0 = 全部回傳）",
+                },
+                "direction": {
+                    "type": "string",
+                    "description": "探索方向：forward（下游）、backward（上游）、both（雙向）",
+                },
+            },
+            "required": ["node"],
+        },
+    },
 }
 
 
@@ -227,6 +252,14 @@ def handle_request(tools, request):
                 ctx_summary = arguments.get("context_summary", "")
                 dims = arguments.get("dimensions", {})
                 result = tools.confirm(source, result_val, agent, ctx_summary, dims)
+                text = json.dumps(result, ensure_ascii=False, indent=2)
+
+            elif tool_name == "hm_explore":
+                node = arguments.get("node", "")
+                depth = arguments.get("depth", 3)
+                min_weight = arguments.get("min_weight", 0.0)
+                direction = arguments.get("direction", "forward")
+                result = tools.explore(node, depth, min_weight, direction)
                 text = json.dumps(result, ensure_ascii=False, indent=2)
 
             else:

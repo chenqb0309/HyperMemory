@@ -64,13 +64,18 @@ def _parse_list_field(fm_text, field):
         if val == "null":
             return []
         if val:
+            # Strip outer YAML list brackets [...]
+            # (handles nextnodes: [[wikilink]] → inner [[wikilink]])
+            inner = val
+            if inner.startswith("[") and inner.endswith("]"):
+                inner = inner[1:-1].strip()
             # Check for single-line wikilinks
-            links = re.findall(r'\[\[(.+?)\]\]', val)
+            links = re.findall(r'\[\[(.+?)\]\]', inner)
             if links:
                 return links
-            # For tags
+            # For tags (not wikilinks)
             if field == "tags":
-                tags = [t.strip().strip("'\"") for t in val.strip("[]").split(",")]
+                tags = [t.strip().strip("'\"") for t in inner.strip("[]").split(",")]
                 return [t for t in tags if t]
         # Empty value means list format follows — fall through
 
