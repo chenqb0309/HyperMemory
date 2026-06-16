@@ -44,6 +44,7 @@ def run(args):
                 fm.get("intensity", 1),
                 fm.get("total_mentions", 0),
                 fm.get("timestamp"),
+                node_type=fm.get("node_type", "經驗"),
             )
             score_str = format_score(score)
             title_str = title

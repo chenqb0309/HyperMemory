@@ -1,109 +1,100 @@
-# HyperMemory：權重公式
+# HyperMemory：權重公式 v2 — 三因子動態權重
 
 ## 公式
 
 ```
-node_score = intensity × (1 + 0.1 × total_mentions) × decay(t)
+weight = engagement × recency
+```
+
+| 因子 | 說明 |
+|------|------|
+| **engagement** | 參與度：intensity × (1 + 0.1 × mentions) + ref_by_boost + chain_boost |
+| **recency** | 時效性：node_type-aware 半衰期模型，最近活躍則維持，超過半衰期開始指數衰減 |
+
+## Engagement 計算
+
+```
+engagement = intensity × (1 + 0.1 × total_mentions) + ref_by_count × 0.3 + max(0, chain_length - 1) × 0.2
 ```
 
 | 變數 | 範圍 | 說明 |
 |------|------|------|
-| `intensity` | 1-10 | 寫入時設定的衝擊強度 |
-| `total_mentions` | 整數 | 被成功 recall 的次數，每次 +1 |
-| `decay(t)` | 0-1 | 時間衰減函數 |
+| `intensity` | 1-10 | 寫入時設定的衝擊強度（不變） |
+| `total_mentions` | 整數 | 被成功 recall 的次數，每次 +1（不變） |
+| `ref_by_count` | 整數 | 被其他 node 引用的次數（from frontmatter ref_by） |
+| `chain_length` | 整數 >= 1 | 所屬鏈的長度（包含自身），鏈頭 node 可獲得 chain_boost |
 
-Intensity 評分參考
+ref_by_boost = `ref_by_count × 0.3`（每次引用 +0.3）
+chain_boost = `max(0, chain_length - 1) × 0.2`（每多一個鏈節點 +0.2）
 
-| 分數 | 條件 |
-|------|------|
-| 9-10 | 災難性失敗或重大突破。值得反覆 recall 的教訓 |
-| 6-8 | 明顯的成功或失敗。值得記錄 |
-| 3-5 | 一般經驗。有參考價值但非關鍵 |
-| 1-2 | 平淡進度。可寫可不寫 |
+## Recency 計算
 
-記憶不分成功或失敗
-
-intensity 是衝擊強度，不是成功/失敗標籤。高 intensity 可以來自重大失敗（如全面當機）或重大成功（如架構突破）。記憶本身沒有成功或失敗屬性，只有強度和 recall 頻率的差異。
-
-## Decay 模型比較
-
-HyperMemory 支援兩種 decay 模型。以下是差異分析與建議。
-
-### 線性衰減（Linear）
+半衰期模型：在 half_life 天數內維持 full score，超過後開始指數衰減。
 
 ```
-decay = max(0.1, 1 - days_since / 365)
+if days_since_last_hit < half_life:
+    recency = 1.0
+else:
+    excess = days_since_last_hit - half_life
+    recency = max(0.05, exp(-excess / half_life))
 ```
 
-| 天數 | decay |
-|------|-------|
-| 0 | 1.0 |
-| 90 | 0.75 |
-| 182 | 0.5 |
-| 329 | 0.1 |
-| 365+ | 0.1（下限） |
+### Node type 半衰期對照
 
-**特性：**
-- 衰減速度恆定，不因 intensity 而改變
-- 一年後觸底（0.1）
-- 容易理解和實作
+| node_type | half_life | 行為 |
+|-----------|-----------|------|
+| 經驗 | 30 天 | 一般經驗，一個月無 recall 開始衰退 |
+| 決策 | 30 天 | 同經驗，一個月 |
+| 骨骼 | 90 天 | 骨骼級知識，三個月無 recall 才開始衰退 |
+| 方法 | 30 天 | 同經驗 |
+| 自動刻錄 | 7 天 | 自動產生的 node，一週無 recall 迅速衰退 |
+| 其他 | 30 天（fallback）| 未知 type 用保守值 |
 
-### 指數衰減（Exponential）
+### 參數優先順序
 
-```
-λ = 0.01 × (11 - intensity) / 10
-decay = e^(-λ × days_since)
-```
+1. `days_since_last_hit` 參數（caller 可傳入，代表最近活躍時間）
+2. `timestamp_str` 參數（從 node 建立時間計算 days_since）
+3. 兩者皆無 → recency = 1.0（無資訊時樂觀估）
 
-intensity 影響 λ，λ 影響衰減速度：
+## 函數簽名
 
-| intensity | λ | 半衰期（decay=0.5） |
-|-----------|----|--------------------|
-| 1 | 0.010 | ~69 天 |
-| 5 | 0.006 | ~115 天 |
-| 9 | 0.002 | ~346 天 |
-
-**特性：**
-- 高 intensity 的記憶衰減更慢
-- 無硬性下限，曲線趨近於零但不歸零
-- 符合人類遺忘曲線（Ebbinghaus）
-
-### 優劣比較
-
-| 維度 | 線性 | 指數 |
-|------|------|------|
-| **實作複雜度** | 低（一行運算） | 中（需 exp 函數） |
-| **intensity 是否影響衰減速度** | 否 | 是 |
-| **長期行為** | 一年後全部 0.1 平盤 | 高 intensity 持久，低 intensity 消退 |
-| **符合印痕效應** | 部分（intensity 影響基數） | 完全（intensity 影響基數 + 速度） |
-| **可預測性** | 高（線性，直覺） | 中（指數，需計算） |
-| **floor 問題** | 人為 cutoff 0.1 | 無 cutoff，自然趨近零 |
-
-### 建議：混合策略
-
-純線性和純指數各有取捨。建議採用 **intensity-adaptive 線性**：
-
-```
-base_rate = 1 / 365                                      # 基礎衰減速度
-decay_rate = base_rate × (11 - intensity) / 10            # intensity 調整速度
-decay = max(0.05, 1 - decay_rate × days_since)            # 下限調低
+```python
+def calc_weight(
+    intensity: int,
+    total_mentions: int,
+    timestamp_str: str | None = None,
+    node_type: str = "經驗",
+    ref_by_count: int = 0,
+    chain_length: int = 1,
+    days_since_last_hit: int | None = None,
+) -> float:
 ```
 
-| intensity | 衰退速度 | 到達 0.1 的天數 |
-|-----------|---------|----------------|
-| 1 | 快 | ~100 天 |
-| 5 | 中 | ~180 天 |
-| 9 | 慢 | ~330 天 |
+所有新參數皆有預設值，舊呼叫方不需修改即可相容。
 
-**理由：**
-- 保留線性的簡單性（無需 exp）
-- 加入 intensity 對衰減速度的影響（符合印痕效應）
-- 解決純線性「一年後全部一樣」的問題
-- 保留 floor 防止權重歸零（實務上記憶不會完全消失）
+## 檔案變更
 
-## 應用場景
+- `src/hypermemory/core/weight.py` — 核心公式改寫
+- `src/hypermemory/mcp_server.py` — recall/think/inspect/list 傳入 node_type、ref_by_count
+- `tests/test_weight_v2.py` — 27 個新測試（保留現有 test_weight.py 相容）
 
-權重公式在兩個地方使用：
+## 不做的範圍
 
-1. **Index 指標選擇**：同一 cluster（同一條鏈）上，最高權重 node 成為 index 指向的入口 node
-2. **nextnodes 探索順序**：從一個 node 出發探索分支時，權重高的分支優先
+- 不實作 body TF-IDF 關鍵詞向量（第二層 relevance）— 保留給後續迭代
+- 不實作 chain boost 的鏈遍歷邏輯（由呼叫方提供 chain_length 參數）
+- 不實作 dreamloop 負面因子（被建議合併但未被動作 → 降權）
+- 不修改 cluster.py 的 keyword matching 邏輯
+
+## 殘餘風險
+
+- 新公式的 weight scale 與 v1 不同（engagement 加入 ref_by + chain，recency 改用半衰期），導致現有 index 的 cluster 指標可能重新指向不同 node（正常行為）
+- 若呼叫方不傳 node_type，預設用「經驗」half_life=30 — 對「骨骼」node 偏保守
+- chain_length 需要呼叫方從索引或鏈遍歷取得 — 單一 node 獨自呼叫時 chain_length=1（無加成）
+
+## 驗收準則
+
+- [ ] 全部 27 個新測試通過
+- [ ] 現有 test_weight.py 的 8 個測試仍通過（或經過當調整）
+- [ ] recall/think 回傳的 weight 欄位符合新公式
+- [ ] MCP hm_inspect 顯示的 weight 更新
+- [ ] 文件已更新至 spec/weight.md

@@ -43,16 +43,19 @@ def test_decay_old():
     assert w_old < w_recent, f"Old node ({w_old}) should weigh less than recent ({w_recent})"
 
 
-def test_intensity_affects_decay():
-    """高 intensity node 衰減更慢"""
+def test_node_type_affects_decay():
+    """高持久性 node type（骨骼）衰減比普通經驗慢"""
     from datetime import datetime, timedelta, timezone
     old = (datetime.now(timezone.utc) - timedelta(days=200)).isoformat()
-    w_high = calc_weight(9, 1, old)
-    w_low = calc_weight(3, 1, old)
-    # Both have intensity in base, so compare ratio-adjusted
-    ratio_high = w_high / (9 * 1.1)  # decay factor for high intensity
-    ratio_low = w_low / (3 * 1.1)   # decay factor for low intensity
-    assert ratio_high > ratio_low, f"High intensity should decay slower. high={ratio_high:.4f} low={ratio_low:.4f}"
+    w_skeletal = calc_weight(5, 1, old, node_type="骨骼")
+    w_exp = calc_weight(5, 1, old, node_type="經驗")
+    # Both have same engagement (5.5), so compare recency ratio
+    ratio_skeletal = w_skeletal / (5 * 1.1)
+    ratio_exp = w_exp / (5 * 1.1)
+    assert ratio_skeletal > ratio_exp, (
+        f"Skeletal should decay slower. "
+        f"skeletal={ratio_skeletal:.4f} exp={ratio_exp:.4f}"
+    )
 
 
 def test_mentions_increase_weight():

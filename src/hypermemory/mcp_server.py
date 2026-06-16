@@ -56,6 +56,8 @@ class HMTools:
                     fm.get("intensity", 1),
                     fm.get("total_mentions", 0),
                     fm.get("timestamp"),
+                    node_type=fm.get("node_type", "經驗"),
+                    ref_by_count=len(fm.get("ref_by", []) or []),
                 )
             results.append({
                 "cluster": ", ".join(keywords),
@@ -95,6 +97,8 @@ class HMTools:
                 fm.get("intensity", 1),
                 fm.get("total_mentions", 0),
                 fm.get("timestamp"),
+                node_type=fm.get("node_type", "經驗"),
+                ref_by_count=len(fm.get("ref_by", []) or []),
             )
             node_dims = parse_dimensions(fm)
             stats = get_confirmation_stats(self.pool, node_file)
@@ -118,6 +122,9 @@ class HMTools:
                 "dimensions": node_dims,
                 "cluster_score": m["score"],
                 "cluster_keywords": m["keywords"],
+                "prenode": fm.get("prenode"),
+                "nextnodes": fm.get("nextnodes", []),
+                "ref_by": fm.get("ref_by", []),
             })
 
         # Sort by timestamp descending (newest first)
@@ -180,6 +187,8 @@ class HMTools:
                 fm.get("intensity", 1),
                 fm.get("total_mentions", 0),
                 fm.get("timestamp"),
+                node_type=fm.get("node_type", "經驗"),
+                ref_by_count=len(fm.get("ref_by", []) or []),
             )
             node_dims = parse_dimensions(fm)
             stats = get_confirmation_stats(self.pool, node_file)
@@ -202,6 +211,9 @@ class HMTools:
                 "tags": fm.get("tags", []),
                 "dimensions": node_dims,
                 "cluster_score": m["score"],
+                "prenode": fm.get("prenode"),
+                "nextnodes": fm.get("nextnodes", []),
+                "ref_by": fm.get("ref_by", []),
             })
 
         # Sort by timestamp descending (newest first)
@@ -267,6 +279,8 @@ class HMTools:
             fm.get("intensity", 1),
             fm.get("total_mentions", 0),
             fm.get("timestamp"),
+            node_type=fm.get("node_type", "經驗"),
+            ref_by_count=len(fm.get("ref_by", []) or []),
         )
 
         prenode = fm.get("prenode")

@@ -27,7 +27,7 @@ def run(args):
         print("(empty index)")
         return
 
-    query = args.query
+    query = " ".join(args.query)
     kw_list = [k.strip() for k in query.replace(",", " ").split() if k.strip()]
 
     # Find ALL matching clusters, sorted by recency
@@ -121,6 +121,12 @@ def run(args):
     print(f"  Date:       {best['timestamp'][:19] if best['timestamp'] != '0000' else '(unknown)'}")
     ts_display = best["timestamp"][:10] if best["timestamp"] != "0000" else "(no date)"
     print(f"  Date:       {ts_display}")
+    pre = fm.get("prenode")
+    if pre:
+        print(f"  ↑ Chain:  {pre}")
+    nexts = fm.get("nextnodes", [])
+    if nexts:
+        print(f"  ↓ Chain:  {', '.join(nexts[:3])}" + (" ..." if len(nexts) > 3 else ""))
     if body_preview:
         print(f"\n{body_preview}")
 

@@ -3,7 +3,7 @@ name = "hypermemory"
 version = "1.1.0"
 description = "AI 記憶放大器 — CLI 工具與 MCP server"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [
     {name = "Jet Chen"},

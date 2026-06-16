@@ -88,6 +88,7 @@ def _recalc(pool):
                 fm.get("intensity", 1),
                 fm.get("total_mentions", 0),
                 fm.get("timestamp"),
+                node_type=fm.get("node_type", "經驗"),
             )
             if weight > best_weight:
                 best_weight = weight

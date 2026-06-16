@@ -29,7 +29,7 @@ def run(args):
         return
 
     # Parse query keywords
-    query = args.keywords
+    query = " ".join(args.keywords)
     if not query:
         print("No keywords provided.")
         return
@@ -71,6 +71,9 @@ def run(args):
             "timestamp": ts or "0000",
             "tags": fm.get("tags", []),
             "cluster_score": m["score"],
+            "prenode": fm.get("prenode"),
+            "nextnodes": fm.get("nextnodes", []),
+            "ref_by": fm.get("ref_by", []),
         })
 
     # Sort by timestamp descending (newest first)
@@ -86,6 +89,12 @@ def run(args):
               f"Weight: {n['weight']}  Date: {ts_display}")
         if tags_str:
             print(f"   Tags: {tags_str}")
+        pre = n.get("prenode")
+        if pre:
+            print(f"   ↑ {pre}")
+        nexts = n.get("nextnodes", [])
+        if nexts:
+            print(f"   ↓ {', '.join(nexts[:3])}" + (" ..." if len(nexts) > 3 else ""))
         print()
 
     # Update total_mentions for the top result
