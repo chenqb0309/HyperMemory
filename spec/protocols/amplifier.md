@@ -1,4 +1,4 @@
-# HyperMemory：思考放大協定（Amplifier Protocol）
+# HyperMemory：思考放大協定（Amplifier Protocol） [design] — agent 行為協定，非 HM 核心功能
 
 ## 定位
 

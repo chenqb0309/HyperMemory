@@ -1,6 +1,6 @@
-# HyperMemory：維護循環
+# HyperMemory：維護循環 [done]
 
-## Recalc（權重重算）
+## Recalc（權重重算） [done]
 
 **頻率**：每日一次。
 
@@ -19,7 +19,7 @@
 - node 檔案不存在於硬碟 → 從 index 移除
 - prenode 指向的 node 已遺失 → 降級為 Type 1
 
-## DreamLoop（關鍵字收斂）
+## DreamLoop（關鍵字收斂） [done]
 
 **頻率**：每週一次。
 
@@ -39,7 +39,7 @@ overlap = |cluster_A ∩ cluster_B| / min(|A|, |B|)
 
 檢查每個關鍵字：其所指向的 node 是否仍存在於硬碟上。若檔案已遺失，從 cluster 中移除對應關鍵字。
 
-## Reflection Loop（反思刻錄）
+## Reflection Loop（反思刻錄） [done]
 
 **頻率**：每日一次，在每日結束前執行。
 

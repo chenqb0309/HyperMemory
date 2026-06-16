@@ -1,4 +1,4 @@
-# HyperMemory：認知協議
+# HyperMemory：認知協議 [design] — agent 行為協定，非 HM 核心功能
 
 ## 協議內容
 

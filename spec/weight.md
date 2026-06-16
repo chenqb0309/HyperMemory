@@ -1,4 +1,4 @@
-# HyperMemory：權重公式 v2 — 三因子動態權重
+# HyperMemory：權重公式 v2 — 三因子動態權重 [done]
 
 ## 公式
 
@@ -11,7 +11,7 @@ weight = engagement × recency + solidification
 | **recency** | 時效性：node_type-aware 半衰期模型，最近活躍則維持，超過半衰期開始指數衰減 |
 | **solidification** | 固化基底：intensity × 0.05，永不衰減，確保高強度經驗永遠有基本 recall 機會 |
 
-## Engagement 計算
+## Engagement 計算 [done]
 
 ```
 engagement = intensity × (1 + 0.1 × total_mentions) + ref_by_count × 0.3 + max(0, chain_length - 1) × 0.2
@@ -27,7 +27,7 @@ engagement = intensity × (1 + 0.1 × total_mentions) + ref_by_count × 0.3 + ma
 ref_by_boost = `ref_by_count × 0.3`（每次引用 +0.3）
 chain_boost = `max(0, chain_length - 1) × 0.2`（每多一個鏈節點 +0.2）
 
-## Recency 計算
+## Recency 計算 [done]
 
 半衰期模型：在 half_life 天數內維持 full score，超過後開始指數衰減。
 

@@ -1,4 +1,4 @@
-# HyperMemory：回憶協定（Flashback Protocol）
+# HyperMemory：回憶協定（Flashback Protocol） [done] — 回憶步驟全部實作
 
 ## 用途
 
@@ -29,7 +29,7 @@
 - 比對原則：cluster 中有多少關鍵字命中，而非完全匹配
 - 命中閾值：至少 1 個關鍵字匹配即視為潛在命中
 - 若多條 cluster 同時命中，取命中關鍵字比例最高者
-- 若無任何 cluster 命中，執行語義近似掃描（讀取所有 cluster 的關鍵字列表，用 LLM 判斷是否有近似概念）
+- 若無任何 cluster 命中，執行語義近似掃描（讀取所有 cluster 的關鍵字列表，用 LLM 判斷是否有近似概念）[design] — HM 不做 embedding，語義近似由 agent 自行判斷
 
 ### Step 5：讀取記憶 Node
 

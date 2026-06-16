@@ -1,4 +1,4 @@
-# HyperMemory：刻錄協定（Imprint Protocol）
+# HyperMemory：刻錄協定（Imprint Protocol） [done]
 
 ## 用途
 

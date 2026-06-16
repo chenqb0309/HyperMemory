@@ -36,7 +36,7 @@ weight = intensity × (1 + 0.1 × total_mentions) × stability_factor
 
 ---
 
-## 2. 兩軸分離模型
+## 2. 兩軸分離模型 [done]
 
 ```
 ┌─────────────────────────────────────────────────────┐
@@ -56,7 +56,7 @@ weight = intensity × (1 + 0.1 × total_mentions) × stability_factor
 
 ---
 
-## 3. Track A：Retrieval Score
+## 3. Track A：Retrieval Score [done]
 
 ### 3.1 設計原則
 
@@ -88,7 +88,7 @@ def retrieval_sort(nodes, query):
 
 ---
 
-## 4. Track B：Maturation Score
+## 4. Track B：Maturation Score [done]
 
 ### 4.1 核心公式
 
@@ -129,7 +129,7 @@ v2 的 `base_intensity` **僅作為 maturation 的起點**，不再是排序因�
 | 幾乎失效的經驗 | 1 | 10 | 2/12 = 0.17 | 應考慮淘汰 |
 | 從未被 recall（無事件） | 0 | 0 | 1.0 | 維持起步值 |
 
-### 4.4 Muscle Memory 門檻
+### 4.4 Muscle Memory 門檻 [partial] — 程式碼已改為 maturation-based，但自動排程（週日 05:00 muscle）尚未整合
 
 ```
 skillify_candidate = (
@@ -143,7 +143,7 @@ v1 對照：舊制用 `weight >= 8.0`，新制用 `maturation >= 8.0`。
 
 ---
 
-## 5. 5M1E 維度匹配系統
+## 5. 5M1E 維度匹配系統 [done]
 
 ### 5.1 Frontmatter 格式
 
@@ -194,7 +194,7 @@ dimensions:
 
 ---
 
-## 6. 事實確認事件（Confirmation Event）
+## 6. 事實確認事件（Confirmation Event） [done]
 
 ### 6.1 事件來源
 
@@ -247,7 +247,7 @@ def recalc_maturation(pool):
 
 ---
 
-## 7. 三層 Filter 模型整合（更新版）
+## 7. 三層 Filter 模型整合（更新版） [done]
 
 ```python
 def hm_recall(query):
@@ -270,7 +270,7 @@ def hm_think(query):
 
 ---
 
-## 8. 狀態遷移圖
+## 8. 狀態遷移圖 [done]
 
 ```
                      Node Created（imprint）
@@ -306,7 +306,7 @@ def hm_think(query):
 
 ---
 
-## 9. 實作優先級（Phase 5 細化）
+## 9. 實作優先級（Phase 5 細化） [done]
 
 | 優先級 | 項目 | 依賴 | 估算 |
 |--------|------|------|------|

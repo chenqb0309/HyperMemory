@@ -19,7 +19,7 @@
 
 ---
 
-## 1. 權重演算法重構（Weight v2）
+## 1. 權重演算法重構（Weight v2） [done]
 
 ### 現狀問題
 
@@ -67,7 +67,7 @@ weight = relevance × engagement × recency
 
 ---
 
-## 2. Muscle Memory Loop（經驗 → Skill）
+## 2. Muscle Memory Loop（經驗 → Skill） [partial] — HM 端就緒（weight/maturation 門檻、skill_ready 標記），LLM 轉換由 agent 自訂
 
 ### 設計目標
 
@@ -137,7 +137,7 @@ weight = relevance × engagement × recency
 
 ---
 
-## 3. 聯想能力（Associative Recall）
+## 3. 聯想能力（Associative Recall） [done]
 
 ### 現狀
 
@@ -184,7 +184,7 @@ hm_recall(keywords, associative=True)
 
 ---
 
-## 4. Head Node 向量擴散聯想
+## 4. Head Node 向量擴散聯想 [done]
 
 ### 概念
 
@@ -233,7 +233,7 @@ hm_explore(node, depth=3, min_weight=5.0)
 
 ---
 
-## 5. 舊 Node 沈降（Background Data）
+## 5. 舊 Node 沈降（Background Data） [done]
 
 ### 概念
 
