@@ -86,55 +86,53 @@ class HMTools:
         # Find ALL matching clusters
         matches = find_all_clusters(kw_list, entries, min_score=0.3)
 
-        if not matches:
-            return {"found": False, "message": "No matching memory found."}
-
         # Read all matched nodes, collect with timestamps
         nodes_with_ts = []
-        for m in matches:
-            node_file = m["node"]
-            node_path = self.pool / node_file
-            if not node_path.exists():
-                continue
-            with open(node_path, encoding="utf-8") as f:
-                content = f.read()
-            fm = parse_frontmatter(content)
-            ts = fm.get("timestamp", "0000")
-            title = extract_title(content)
-            weight = calc_weight(
-                fm.get("intensity", 1),
-                fm.get("total_mentions", 0),
-                fm.get("timestamp"),
-                node_type=fm.get("node_type", "經驗"),
-                ref_by_count=len(fm.get("ref_by", []) or []),
-                chain_length=self._chain_length(node_file, fm),
-            )
-            node_dims = parse_dimensions(fm)
-            stats = get_confirmation_stats(self.pool, node_file)
-            mat = calc_maturation(
-                fm.get("intensity", 1),
-                stats["positive"],
-                stats["negative"],
-                fm.get("timestamp"),
-                node_dims=node_dims,
-            )
+        if matches:
+            for m in matches:
+                node_file = m["node"]
+                node_path = self.pool / node_file
+                if not node_path.exists():
+                    continue
+                with open(node_path, encoding="utf-8") as f:
+                    content = f.read()
+                fm = parse_frontmatter(content)
+                ts = fm.get("timestamp", "0000")
+                title = extract_title(content)
+                weight = calc_weight(
+                    fm.get("intensity", 1),
+                    fm.get("total_mentions", 0),
+                    fm.get("timestamp"),
+                    node_type=fm.get("node_type", "經驗"),
+                    ref_by_count=len(fm.get("ref_by", []) or []),
+                    chain_length=self._chain_length(node_file, fm),
+                )
+                node_dims = parse_dimensions(fm)
+                stats = get_confirmation_stats(self.pool, node_file)
+                mat = calc_maturation(
+                    fm.get("intensity", 1),
+                    stats["positive"],
+                    stats["negative"],
+                    fm.get("timestamp"),
+                    node_dims=node_dims,
+                )
 
-            nodes_with_ts.append({
-                "node": node_file,
-                "title": title,
-                "type": fm.get("node_type"),
-                "intensity": fm.get("intensity"),
-                "weight": round(weight, 2),
-                "maturation": mat["score"],
-                "timestamp": ts,
-                "tags": fm.get("tags", []),
-                "dimensions": node_dims,
-                "cluster_score": m["score"],
-                "cluster_keywords": m["keywords"],
-                "prenode": fm.get("prenode"),
-                "nextnodes": fm.get("nextnodes", []),
-                "ref_by": fm.get("ref_by", []),
-            })
+                nodes_with_ts.append({
+                    "node": node_file,
+                    "title": title,
+                    "type": fm.get("node_type"),
+                    "intensity": fm.get("intensity"),
+                    "weight": round(weight, 2),
+                    "maturation": mat["score"],
+                    "timestamp": ts,
+                    "tags": fm.get("tags", []),
+                    "dimensions": node_dims,
+                    "cluster_score": m["score"],
+                    "cluster_keywords": m["keywords"],
+                    "prenode": fm.get("prenode"),
+                    "nextnodes": fm.get("nextnodes", []),
+                    "ref_by": fm.get("ref_by", []),
+                })
 
         # Sort by timestamp descending (newest first)
         nodes_with_ts.sort(
@@ -173,8 +171,48 @@ class HMTools:
             except Exception:
                 pass  # Non-critical
 
+        # 若無匹配結果，嘗試背景查詢
+        if not nodes_with_ts:
+            bg_category = None
+            search_tags = []
+            for kw in kw_list:
+                if ":" in kw:
+                    parts = kw.split(":", 1)
+                    if parts[0] in ("人", "機", "料", "法", "環", "量"):
+                        bg_category = parts[0]
+                        if parts[1].strip():
+                            search_tags.append(parts[1].strip())
+                else:
+                    search_tags.append(kw)
+
+            from hypermemory.core.sediment import recall_background
+            bg_result = recall_background(
+                self.pool,
+                category=bg_category,
+                tag=search_tags[0] if search_tags else None,
+            )
+            if bg_result["found"]:
+                return {
+                    "found": True,
+                    "query": keywords,
+                    "total": len(bg_result["entries"]),
+                    "results": [
+                        {
+                            "node": e["source"],
+                            "title": e["fact"],
+                            "weight": e["original_weight"],
+                            "timestamp": e["archived_at"],
+                            "tags": e.get("tags", []),
+                            "source": "background",
+                        }
+                        for e in bg_result["entries"]
+                    ],
+                    "background": True,
+                    "pending_skills": pending_skill_count(self.pool),
+                }
+
         return {
-            "found": True,
+            "found": True if nodes_with_ts else False,
             "query": keywords,
             "total": len(nodes_with_ts),
             "results": nodes_with_ts[:limit],

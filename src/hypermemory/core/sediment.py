@@ -151,6 +151,72 @@ def write_background(pool: Path, node_name: str, fm: dict) -> str | None:
     return first_file
 
 
+def recall_background(pool: Path, category: str | None = None, tag: str | None = None) -> dict:
+    """從 background JSON 中查詢歸檔的經驗。
+
+    Parameters
+    ----------
+    pool : Path
+        記憶池路徑
+    category : str | None
+        5M1E 分類名（機/料/法/環/人/量/other），None=全部
+    tag : str | None
+        過濾 tag（大小寫 insensitive），None=全部
+
+    Returns
+    -------
+    dict
+        {
+            "found": True/False,
+            "entries": [ ... ],
+            "categories": [str],   # 有哪些分類被掃描
+            "category": str | None, # 請求的分類（如有）
+        }
+    """
+    bg_dir = pool / BACKGROUND_DIR
+
+    if not bg_dir.exists():
+        return {"found": False, "entries": [], "categories": [], "category": category}
+
+    # Determine which files to scan
+    if category:
+        filenames = [f"{category}.json"]
+    else:
+        filenames = sorted(f.name for f in bg_dir.iterdir() if f.suffix == ".json")
+
+    all_entries = []
+    scanned_categories = []
+
+    for filename in filenames:
+        filepath = bg_dir / filename
+        if not filepath.exists():
+            continue
+
+        try:
+            data = json.loads(filepath.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            continue
+
+        cat_name = data.get("category", filename.replace(".json", ""))
+        scanned_categories.append(cat_name)
+
+        for entry in data.get("entries", []):
+            if tag:
+                entry_tags = [t.lower() for t in entry.get("tags", [])]
+                if tag.lower() not in entry_tags:
+                    continue
+            # Attach the category to the entry
+            entry["category"] = cat_name
+            all_entries.append(entry)
+
+    return {
+        "found": len(all_entries) > 0,
+        "entries": all_entries,
+        "categories": scanned_categories,
+        "category": category,
+    }
+
+
 def sediment_pool(pool: Path, dry_run: bool = False) -> dict:
     """掃描所有 active node，沈降 cold node。
 
