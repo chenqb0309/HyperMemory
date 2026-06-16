@@ -129,6 +129,18 @@ class HMTools:
             reverse=True,
         )
 
+        # 語義聯想（第三層）— 對 top result 做 associative recall
+        if nodes_with_ts:
+            try:
+                from hypermemory.core.association import associative_recall
+                assoc_result = associative_recall(
+                    self.pool, nodes_with_ts[0]["node"], top_k=3
+                )
+                if assoc_result["found"] and assoc_result["suggestions"]:
+                    nodes_with_ts[0]["suggestions"] = assoc_result["suggestions"]
+            except Exception:
+                pass  # Non-critical
+
         # Update total_mentions for the top result only
         if nodes_with_ts:
             top = nodes_with_ts[0]
@@ -219,6 +231,15 @@ class HMTools:
         )
 
         best = candidates[0]
+
+        # 語義聯想（第三層）— 對 top result 做 associative recall
+        try:
+            from hypermemory.core.association import associative_recall
+            assoc_result = associative_recall(self.pool, best["node"], top_k=3)
+            if assoc_result["found"] and assoc_result["suggestions"]:
+                best["suggestions"] = assoc_result["suggestions"]
+        except Exception:
+            pass  # Non-critical
 
         # Read full content for body preview
         try:

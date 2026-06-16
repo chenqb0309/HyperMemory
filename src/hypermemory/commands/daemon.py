@@ -5,6 +5,7 @@ import sys
 import time
 import signal
 import json
+import subprocess
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
 
@@ -31,6 +32,9 @@ ACTION_NAMES = {
     "dreamloop": "DreamLoop (關鍵字去重)",
     "reflect": "Reflection (自動刻錄)",
 }
+
+SYSTEMD_UNIT_DIR = Path.home() / ".config" / "systemd" / "user"
+SYSTEMD_UNIT_NAME = "hypermemory.service"
 
 
 def _pid_path():
@@ -350,6 +354,130 @@ def cmd_log(args):
         print(f"Error reading log: {e}")
 
 
+def _unit_path() -> Path:
+    return SYSTEMD_UNIT_DIR / SYSTEMD_UNIT_NAME
+
+
+def generate_unit_content(hm_path: str | None = None, pool: str | None = None) -> str:
+    """產生 systemd unit file 內容。
+
+    Parameters
+    ----------
+    hm_path : str | None
+        hm 執行檔路徑（預設從 sys.argv 推測）
+    pool : str | None
+        記憶池路徑（預設用 resolve_pool）
+
+    Returns
+    -------
+    str : systemd unit file 內容
+    """
+    if hm_path is None:
+        hm_path = os.path.abspath(sys.argv[0]) if sys.argv[0] and sys.argv[0] != "-m" else "hm"
+    if pool is None:
+        pool = str(resolve_pool(None))
+
+    return f"""\
+[Unit]
+Description=HyperMemory Daemon — AI 記憶放大器排程器
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart={hm_path} daemon start
+ExecStop={hm_path} daemon stop
+Restart=on-failure
+RestartSec=30
+Environment=HYPERMEMORY_POOL={pool}
+
+[Install]
+WantedBy=default.target
+"""
+
+
+def cmd_install(args, dry_run=False, hm_path=None, pool=None):
+    """hm daemon install
+
+    dry_run=True 時只輸出 unit file 內容，不實際寫入或呼叫 systemctl。
+    hm_path 和 pool 用於測試注入。
+    """
+    # Check CLI --dry-run flag
+    if args is not None and hasattr(args, 'dry_run') and args.dry_run:
+        dry_run = True
+
+    unit_path = _unit_path()
+    if hm_path is None:
+        hm_path = os.path.abspath(sys.argv[0]) if sys.argv[0] and sys.argv[0] != "-m" else "hm"
+    if pool is None:
+        pool = str(resolve_pool(None))
+
+    content = generate_unit_content(hm_path=hm_path, pool=pool)
+
+    if dry_run:
+        print(content)
+        return
+
+    # Write unit file
+    unit_path.parent.mkdir(parents=True, exist_ok=True)
+    unit_path.write_text(content, encoding="utf-8")
+    print(f"Unit file created: {unit_path}")
+
+    # systemctl enable + start
+    try:
+        subprocess.run(["systemctl", "--user", "daemon-reload"], check=False)
+        result = subprocess.run(
+            ["systemctl", "--user", "enable", "--now", SYSTEMD_UNIT_NAME],
+            capture_output=True, text=True,
+        )
+        if result.returncode == 0:
+            print("Daemon installed and started as systemd user service.")
+        else:
+            print(f"systemctl output: {result.stderr.strip() or result.stdout.strip()}")
+            print("You may need to run: systemctl --user enable --now hypermemory.service")
+    except FileNotFoundError:
+        print("systemctl not found — unit file created manually.")
+        print(f"To enable: systemctl --user enable --now {unit_path}")
+
+    print()
+    print("  Status: systemctl --user status hypermemory.service")
+    print("  Logs:   journalctl --user -u hypermemory.service -f")
+    print("  Stop:   systemctl --user stop hypermemory.service")
+    print("  Start:  systemctl --user start hypermemory.service")
+
+
+def cmd_uninstall(args, dry_run=False):
+    """hm daemon uninstall"""
+    unit_path = _unit_path()
+
+    if not unit_path.exists() and not dry_run:
+        print("HyperMemory service is not installed.")
+        return
+
+    if not dry_run:
+        # Disable + stop
+        try:
+            subprocess.run(
+                ["systemctl", "--user", "disable", "--now", SYSTEMD_UNIT_NAME],
+                capture_output=True,
+            )
+        except FileNotFoundError:
+            pass
+
+        # Remove unit file
+        if unit_path.exists():
+            unit_path.unlink()
+            print(f"Unit file removed: {unit_path}")
+
+        # daemon-reload
+        try:
+            subprocess.run(["systemctl", "--user", "daemon-reload"], check=False)
+        except FileNotFoundError:
+            pass
+
+    print("HyperMemory systemd service uninstalled.")
+
+
 def run(args):
     """Route to subcommand handler."""
     action = args.daemon_action
@@ -362,6 +490,10 @@ def run(args):
         cmd_status(args)
     elif action == "log":
         cmd_log(args)
+    elif action == "install":
+        cmd_install(args)
+    elif action == "uninstall":
+        cmd_uninstall(args)
     else:
         print(f"Unknown daemon action: {action}")
         sys.exit(1)

@@ -130,6 +130,13 @@ def run(args):
     if body_preview:
         print(f"\n{body_preview}")
 
+    # 語義聯想 suggestions
+    suggestions = best.get("suggestions", [])
+    if suggestions:
+        print(f"  Related: ", end="")
+        s_str = ", ".join(s["title"][:25] for s in suggestions[:3])
+        print(s_str + (" ..." if len(suggestions) > 3 else ""))
+
     # Update total_mentions
     if not args.dry_run:
         mentions = fm.get("total_mentions", 0) + 1

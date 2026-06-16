@@ -58,6 +58,9 @@ def build_parser():
     daemon_sub.add_parser("stop", help="停止 daemon")
     daemon_sub.add_parser("status", help="查詢 daemon 狀態")
     daemon_sub.add_parser("log", help="顯示 daemon 日誌")
+    install_p = daemon_sub.add_parser("install", help="安裝為 systemd user service（開機自動啟動）")
+    install_p.add_argument("--dry-run", action="store_true", help="僅顯示 unit file 內容，不實際安裝")
+    daemon_sub.add_parser("uninstall", help="移除 systemd service")
     daemon_p.set_defaults(func="daemon")
 
     # hm maintain

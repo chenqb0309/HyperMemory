@@ -95,6 +95,11 @@ def run(args):
         nexts = n.get("nextnodes", [])
         if nexts:
             print(f"   ↓ {', '.join(nexts[:3])}" + (" ..." if len(nexts) > 3 else ""))
+        # 語義聯想 suggestions
+        suggestions = n.get("suggestions", [])
+        if suggestions:
+            s_str = ", ".join(s["title"][:20] for s in suggestions[:2])
+            print(f"   → {s_str}" + (" ..." if len(suggestions) > 2 else ""))
         print()
 
     # Update total_mentions for the top result
