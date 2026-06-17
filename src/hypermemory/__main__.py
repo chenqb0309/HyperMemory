@@ -83,6 +83,14 @@ def build_parser():
     doctor_p = subparsers.add_parser("doctor", help="執行系統自我診斷（HM 版本、Pool 完整性、daemon 狀態）")
     doctor_p.set_defaults(func="doctor")
 
+    # hm link
+    link_p = subparsers.add_parser("link", help="將 HM 掛接到支援的 agent 框架")
+    link_sub = link_p.add_subparsers(dest="link_action", required=True)
+    hook_p = link_sub.add_parser("hook", help="建立 Hermes plugin 橋接檔案，讓 HM 自動 hook 進 agent 生命週期")
+    hook_p.add_argument("--agent", default="hermes", help="目標 agent（目前僅支援 hermes）")
+    hook_p.add_argument("--unlink", action="store_true", help="移除已建立的 hook 橋接")
+    hook_p.set_defaults(func="link")
+
     # hm log
     log_p = subparsers.add_parser("log", help="Session log 操作")
     log_sub = log_p.add_subparsers(dest="log_action", required=True)
@@ -153,6 +161,8 @@ def main():
         from hypermemory.commands.doctor import run
     elif args.func == "log":
         from hypermemory.commands.log_cmd import run
+    elif args.func == "link":
+        from hypermemory.commands.link import run
     else:
         parser.print_help()
         sys.exit(1)
