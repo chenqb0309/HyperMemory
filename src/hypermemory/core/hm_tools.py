@@ -74,7 +74,7 @@ class HMTools:
             "pending_skills": pending_skill_count(self.pool),
         }
 
-    def recall(self, keywords, limit=5):
+    def recall(self, keywords, limit=5, dry_run=False):
         """回憶與關鍵字匹配的經驗，按 recency 優先排序（最新在前）。"""
         from hypermemory.core.muscle_memory import pending_skill_count
 
@@ -153,7 +153,7 @@ class HMTools:
                 pass  # Non-critical
 
         # Update total_mentions for the top result only
-        if nodes_with_ts:
+        if not dry_run and nodes_with_ts:
             top = nodes_with_ts[0]
             try:
                 top_path = self.pool / top["node"]
@@ -219,7 +219,7 @@ class HMTools:
             "pending_skills": pending_skill_count(self.pool),
         }
 
-    def think(self, query):
+    def think(self, query, dry_run=False):
         """習慣性回想：回傳最新 matching node（recency-first）。"""
         from hypermemory.core.muscle_memory import pending_skill_count
 
@@ -320,14 +320,15 @@ class HMTools:
         best["summary"] = " | ".join(body_lines) if body_lines else best["title"]
 
         # Update total_mentions
-        try:
-            mentions_match = re.search(r'total_mentions:\s*(\d+)', full_content)
-            mentions = (int(mentions_match.group(1)) if mentions_match else 0) + 1
-            new_content = re.sub(r'(total_mentions:\s*)\d+', rf'\g<1>{mentions}', full_content)
-            with open(self.pool / best["node"], "w", encoding="utf-8") as f:
-                f.write(new_content)
-        except Exception:
-            pass
+        if not dry_run:
+            try:
+                mentions_match = re.search(r'total_mentions:\s*(\d+)', full_content)
+                mentions = (int(mentions_match.group(1)) if mentions_match else 0) + 1
+                new_content = re.sub(r'(total_mentions:\s*)\d+', rf'\g<1>{mentions}', full_content)
+                with open(self.pool / best["node"], "w", encoding="utf-8") as f:
+                    f.write(new_content)
+            except Exception:
+                pass
 
         return {
             "found": True,
