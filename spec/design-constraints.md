@@ -1,21 +1,21 @@
 # HyperMemory：設計約束（Design Constraints）
 
-**版本**: 1.0
-**建立日期**: 2026-06-17
+| 版本**: 2.0
+| 建立日期**: 2026-06-17 (v2: 2026-06-22)
 **定位**: 本文件定義 HyperMemory 不可協調的設計原則。所有 spec、實作、測試若與以下約束衝突，應以本文件為準。
 
 ---
 
-## 約束 1：Agent 優先的記憶外掛
+## 約束 1：Hermes 原生，MCP 相容
 
-HyperMemory 的主要使用者是 AI agent，不是人類。
+HyperMemory 的主要使用者是 Hermes agent，但透過 MCP 提供跨 agent 相容性。
 
 | 面向 | 內容 |
 |------|------|
-| Why | agent 內建記憶（Memory.md）收容空間過小，無法承載長期經驗累積 |
-| What | HyperMemory 是 agent 的外掛記憶空間，透過 MCP/stdin 介面存取 |
-| 不做的 | 不設計為人類筆記工具（雖然人類可讀），不依賴 GUI |
-| 驗收 | 任何 AI agent 接入 MCP 後即可 recall/imprint/confirm，不需人類介入 |
+| Why | agent 內建記憶（Memory.md）收容空間過小，無法承載長期經驗累積；閉環強制力需要 framework-level hook，HM 選擇在不犧牲正確性的前提下優先服務 Hermes |
+| What | 核心：直接 import `hypermemory.core` 作為 Hermes 的 plugin + hook，取得 pre_llm_call / post_tool_call / post_llm_call 三處強制閉環；附加：MCP server + CLI 保留，供外部 agent 或手動操作使用 |
+| 不做的 | 不為了保持 agent-agnostic 而放棄閉環強制力；不強求「任何 agent 都能達到同等體驗」；MCP 相容僅為附加功能，不主導開發決策 |
+| 驗收 | Hermes plugin 裝載後：每輪自動 recall、terminal 結束自動 confirm、對話結束自動 imprint。MCP 仍可被任何支援 MCP 的 client 存取（但體驗不保證閉環） |
 
 ---
 
@@ -78,7 +78,7 @@ HyperMemory 的主要使用者是 AI agent，不是人類。
 | 面向 | 內容 |
 |------|------|
 | Why | 沒有記憶的 agent 每次從零開始，人類無法信任其決策一致性 |
-| What | MCP 讓任何 agent 接入；maturation 提供事實驗證的可靠度指標；認知協議（recall-first）確保 agent 不自作主張 |
+| What | Plugin hook（pre_llm_call）強制每輪自動 recall；maturation 提供事實驗證的可靠度指標；post_tool_call 自動 confirm 形成閉環。MCP 保留供外部 agent 存取（但無閉環保證） |
 | 不做的 | 不提供「AI 自信度」取代事實驗證，不偽造經驗 |
 | 驗收 | agent 接入 HM 後，相同問題可回傳一致的、有經驗依據的回答；人類可檢視經驗鏈與 confirmation 紀錄 |
 

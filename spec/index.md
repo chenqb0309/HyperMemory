@@ -23,6 +23,7 @@
 | [design/weight.md](design/weight.md) | done | 權重公式 v2：engagement × recency + solidification。半衰期模型與所有常數定義 |
 | [design/maturation-v2.md](design/maturation-v2.md) | done | 經驗成熟度系統 v2：兩軸分離（Retrieval v.s. Accumulation），5M1E 維度過濾的 confirm 事件累積 |
 | [design/memory-pool.md](design/memory-pool.md) | done | 記憶池目錄結構：index 格式、archive 機制、background 儲存 |
+| [design/hermes-loop-plugin.md](design/hermes-loop-plugin.md) | draft | **HM Loop Plugin** — Hermes plugin，利用 pre_llm_call / post_tool_call / post_llm_call 三處 hook 建立強制記憶閉環。取代認知協議的 recall-first 行為規則，以 framework 層強制力確保每輪 recall。 |
 
 ---
 
@@ -69,7 +70,8 @@ spec/
 │   ├── node-schema.md
 │   ├── weight.md
 │   ├── maturation-v2.md
-│   └── memory-pool.md
+│   ├── memory-pool.md
+│   └── hermes-loop-plugin.md        ← Hermes 強制閉環 plugin 規格
 ├── protocols/                       ← 操作協議
 │   ├── imprint.md
 │   ├── flashback.md
