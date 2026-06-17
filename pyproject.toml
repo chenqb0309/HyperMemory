@@ -21,5 +21,8 @@ Homepage = "https://github.com/chenqb0309/HyperMemory"
 [project.scripts]
 hm = "hypermemory.__main__:main"
 
+[project.entry-points."hermes_agent.plugins"]
+hm-loop = "hypermemory.plugin"
+
 [tool.setuptools.packages.find]
 where = ["src"]

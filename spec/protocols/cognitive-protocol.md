@@ -1,5 +1,10 @@
 # HyperMemory：認知協議 [design] — agent 行為協定，非 HM 核心功能
 
+> **v2 備註（2026-06-22）**：自 design-constraints.md v2 起，HM 改為 Hermes 原生架構。
+> 此協議的「recall-first」行為已由 `core/hooks.py` + Hermes plugin hook（pre_llm_call）
+> 在 framework 層強制執行，不再依賴 agent 自覺遵守。
+> 本文件保留為設計 rationale 參考。強制實作見 `core/hooks.py`。
+
 ## 協議內容
 
 ### 1. 以記憶為底座的思考
