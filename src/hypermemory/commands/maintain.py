@@ -4,7 +4,7 @@ import sys
 
 from hypermemory.core.pool import resolve_pool, index_path, list_nodes
 from hypermemory.core.index import parse_index, update_index_entry
-from hypermemory.core.node import parse_frontmatter, extract_title
+from hypermemory.core.node import parse_frontmatter, extract_title, wrap_marker
 from hypermemory.core.weight import calc_weight, format_score
 from hypermemory.core.log import recent as recent_logs
 from hypermemory.core.print import safe_print
@@ -278,6 +278,9 @@ tags: [{tags_str}]
         # Normalize body links
         node_content = strip_body_links(node_content)
         node_content = generate_body_links(node_content)
+
+        # 設計約束 7：附加 memory marker
+        node_content = wrap_marker(node_content)
 
         # Write file
         date_str = timestamp[:10]

@@ -81,3 +81,16 @@ HyperMemory 的主要使用者是 AI agent，不是人類。
 | What | MCP 讓任何 agent 接入；maturation 提供事實驗證的可靠度指標；認知協議（recall-first）確保 agent 不自作主張 |
 | 不做的 | 不提供「AI 自信度」取代事實驗證，不偽造經驗 |
 | 驗收 | agent 接入 HM 後，相同問題可回傳一致的、有經驗依據的回答；人類可檢視經驗鏈與 confirmation 紀錄 |
+
+---
+
+## 約束 7：經驗記憶不是事實
+
+HyperMemory 儲存的是經驗記錄，不是當前事實。consuming AI 必須能夠明確區分，在任何存取路徑下都不應混淆。
+
+| 面向 | 內容 |
+|------|------|
+| Why | HM 的節點來自過往對話與實作經驗，可能過時、錯誤或 context 不適用。任何 agent 將記憶當作當前事實使用，都可能產出錯誤結果 |
+| What | 每個 node 檔案以 `^HM_MEMORY_START` 和 `^HM_MEMORY_END` 成對 marker 包覆，start 行附 disclaimer 文字。所有寫入路徑（imprint、reflect、daemon）自動附加 marker。所有讀取路徑（parse_frontmatter）自動跳過 marker。recall/think 輸出時不強制剝離 marker — consuming AI 在 context 中直接看到 disclaimer |
+| 不做的 | marker 不參與任何邏輯運算（權重、maturation、filter 都不依賴它）。不強制 recall/think 回傳時額外加 disclaimer（檔案本身的 marker 已足夠，且 parse_frontmatter 不受干擾） |
+| 驗收 | 每個 node 檔案的第一行是 `^HM_MEMORY_START`；最後一行是 `^HM_MEMORY_END`；parse_frontmatter 正確解析包覆後的內容；新建立的 node 自動含 marker；35 個既有 node 批次補全；三條寫入路徑（CLI imprint、MCP imprint、reflect）全部強制 |

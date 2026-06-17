@@ -5,7 +5,7 @@ from pathlib import Path
 
 from hypermemory.core.pool import resolve_pool, index_path
 from hypermemory.core.index import parse_index, update_index_entry, format_index_entry, sync_parent_links
-from hypermemory.core.node import parse_frontmatter, extract_title, strip_body_links, generate_body_links, extract_keywords
+from hypermemory.core.node import parse_frontmatter, extract_title, strip_body_links, generate_body_links, extract_keywords, wrap_marker
 from hypermemory.core.weight import calc_weight, format_score
 
 
@@ -60,6 +60,9 @@ def run(args):
     # 4. Strip any existing body link section from input, then regenerate
     content = strip_body_links(content)
     content = generate_body_links(content)
+
+    # 設計約束 7：附加 memory marker
+    content = wrap_marker(content)
 
     # Write to pool
     with open(dest_path, "w", encoding="utf-8") as f:

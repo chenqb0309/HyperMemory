@@ -84,8 +84,45 @@ Frontmatter 中的 `[[wikilink]]` 是 AI parsing 的 canonical source。body 中
 - nextnodes 非空 → `後繼：[[node1.md]]、[[node2.md]]`
 - ref_by 非空 → `參考來源：[[src1.md]]、[[src2.md]]`
 - 該欄位為 null/空時，對應行省略
-- 三個欄位皆空時，整個 `## 關聯` 區塊省略
-- `## 關聯` 永遠在 title 之後、正文第一節之前
+1. 三個欄位皆空時，整個 `## 關聯` 區塊省略
+2. `## 關聯` 永遠在 title 之後、正文第一節之前
+
+## Memory Marker（設計約束 7）
+
+每個 node 檔案以成對 marker 包覆，使 consuming AI 在任意存取路徑下都能直觀辨識「這是記憶，不是事實」。
+
+### 檔案格式
+
+```
+^HM_MEMORY_START
+# HyperMemory 經驗記錄 — 非當前事實，使用前請確認時效性與場景適用性
+---
+<frontmatter>
+---
+
+# Title
+
+## 正文
+
+...
+^HM_MEMORY_END
+```
+
+### 欄位
+
+| 行 | 內容 | 說明 |
+|----|------|------|
+| 1 | `^HM_MEMORY_START` | marker 起始，宣告以下內容為經驗記憶 |
+| 2 | `# HyperMemory 經驗記錄 — 非當前事實，使用前請確認時效性與場景適用性` | disclaimer 文字，consuming AI 在 context 中直接可見 |
+| 3-? | 原有 frontmatter + body | 不受 marker 影響 |
+| 末 | `^HM_MEMORY_END` | marker 結束 |
+
+### 規則
+
+- marker 不參與任何邏輯運算（權重、maturation、filter 都不依賴它）
+- `parse_frontmatter()` 自動跳過 marker 行
+- `wrap_markers()` / `strip_markers()` 提供程式化增刪
+- 三個寫入路徑強制附加：CLI imprint、MCP imprint、reflect
 
 ## 節點命名
 

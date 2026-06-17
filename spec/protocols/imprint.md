@@ -62,6 +62,12 @@
 
 若發現關聯，補進新 node 的 `ref_by`。只掃 index 指向的當前 node（每 cluster 一個），不掃整條鏈。
 
+### Step 5c：附加 Memory Marker（設計約束 7）
+
+在寫入檔案前呼叫 `wrap_markers(content)`，為 node 內容加上 `^HM_MEMORY_START / ^HM_MEMORY_END` 包覆及 disclaimer。
+
+所有寫入路徑（CLI imprint、MCP imprint、reflect）皆須強制執行此步驟。
+
 ### Step 6：寫入記憶 Node
 
 寫入完整檔案（frontmatter + body link + 正文）至記憶池：

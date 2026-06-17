@@ -35,6 +35,10 @@
 
 命中 cluster 後，讀取其指向的 node 檔案內容。
 
+⚠️ node 檔案包含 memory marker（`^HM_MEMORY_START` / `^HM_MEMORY_END` 及 disclaimer 行）。
+`parse_frontmatter()` 會自動跳過這些行，不影響解析結果。
+disclaimer 在 context 中提醒 consuming AI「這是記憶，不是事實」。
+
 ### Step 6：更新 total_mentions
 
 在該 node 的 frontmatter 中，將 `total_mentions` 加 1。

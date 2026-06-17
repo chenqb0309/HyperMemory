@@ -3,12 +3,77 @@
 import re
 
 
+# ─── Memory Marker ────────────────────────────────────────
+#
+# 設計約束 7：所有 node 檔案必須以 marker 包覆，標示「這是記憶，不是事實」。
+# 三個路徑強制：CLI imprint、MCP imprint、reflect。parse_frontmatter 自動跳過 marker。
+
+MARKER_START = "^HM_MEMORY_START"
+MARKER_DISC = "# HyperMemory 經驗記錄 — 非當前事實，使用前請確認時效性與場景適用性"
+MARKER_END = "^HM_MEMORY_END"
+
+
+def has_marker(content: str) -> bool:
+    """檢查 node 內容是否已包含 marker。"""
+    lines = content.strip("\n").split("\n")
+    return (
+        len(lines) >= 4
+        and lines[0].strip() == MARKER_START
+        and lines[-1].strip() == MARKER_END
+    )
+
+
+def wrap_markers(content: str) -> str:
+    """為 node 內容加上 marker 包覆。已存在則略過（idempotent）。"""
+    if has_marker(content):
+        return content
+    return (
+        MARKER_START + "\n"
+        + MARKER_DISC + "\n"
+        + content.rstrip("\n") + "\n"
+        + MARKER_END + "\n"
+    )
+
+
+def strip_markers(content: str) -> str:
+    """移除 marker 包覆，還原純 node 內容。
+    無 marker 則原樣回傳（idempotent）。
+    """
+    if not content.startswith(MARKER_START):
+        return content
+    # Skip first two lines (START + DISC), then find END marker
+    lines = content.split("\n")
+    end_idx = None
+    for i in range(len(lines) - 1, -1, -1):
+        if lines[i].strip() == MARKER_END:
+            end_idx = i
+            break
+    if end_idx is not None:
+        return "\n".join(lines[2:end_idx]) + "\n"
+    return content
+
+
+# ─── 別名（向後相容）────────────────────────────────────────
+
+wrap_marker = wrap_markers
+unwrap_marker = strip_markers
+
+
+# ─── Frontmatter Parsing ──────────────────────────────────
+
+
 def parse_frontmatter(content):
     """解析 node 檔案的 frontmatter，回傳 dict。
 
     支援 scalar（prenode）和 list（nextnodes, ref_by, tags）格式。
+    自動跳過 memory marker 行。
     """
     fm = {}
+
+    # 跳過 memory marker 行（設計約束 7）
+    # MARKER_START + MARKER_DISC 共兩行，以及任何 ^ 前綴行
+    while content.startswith(("^", MARKER_DISC)):
+        content = content.split("\n", 1)[1] if "\n" in content else ""
 
     fm_match = re.search(r'^---\s*\n(.*?)\n---', content, re.DOTALL)
     if not fm_match:
