@@ -13,6 +13,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 from hypermemory.core.maturation import calc_maturation
 from hypermemory.core.dimensions import is_compatible
 from hypermemory.core.hm_tools import HMTools
+from hypermemory.core.weight import calc_weight
 
 TS_OLD = "2025-01-01T00:00:00+00:00"
 TS_NEW = "2026-06-16T00:00:00+00:00"
@@ -206,3 +207,27 @@ def test_5m1e_no_penalty():
     assert is_compatible(node_dims, {})[0]
     # 無 node dims → 全部通過
     assert is_compatible({}, {"機": "WSL"})[0]
+
+
+# ─── P2: Chain Boost ─────────────────────────
+
+
+def test_chain_boost_calculation():
+    """chain_length > 1 時 calc_weight 應包含 chain_boost。"""
+    w1 = calc_weight(5, 1, chain_length=1)  # isolated node
+    w3 = calc_weight(5, 1, chain_length=3)  # middle of 3-node chain
+    # engagement diff = (3-1)*0.2 = 0.4
+    assert abs(w3 - w1 - 0.4) < 0.01, (
+        f"Chain boost should add 0.4, got diff {w3 - w1}"
+    )
+
+
+def test_chain_boost_in_explore():
+    """hm_explore 回傳結果應包含 weight 可用於排序。"""
+    from hypermemory.core.hm_tools import HMTools
+    pool = _chain_pool()  # from test_invariants
+    tools = HMTools(str(pool))
+    result = tools.explore("head.md", direction="forward", depth=5)
+    assert result["found"]
+    for n in result.get("nextnodes", []):
+        assert "weight" in n, "Each explore result should have weight"
